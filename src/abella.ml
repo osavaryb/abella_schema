@@ -589,7 +589,7 @@ let rec process () =
 	    let invstr = "Theorem "^id^"_inv : forall E G, \n "^id^" G -> member E G ->"^(String.concat "\\/ \n" invstrl)^". \n" in
 	    fprintf !out "%s" invstr;
 	    (* determinicity lemma *)
-	    let detstrl = List.map (fun (id3, ((id1,ty1),(id2,ty2),utm)) -> "Theorem "^(ty_to_string ty1)^"_uniq_in_"^id3^": forall L E A B -> {L |- "^(uterm_to_string (rename_id_in_uterm id2 (String.capitalize id2) (rename_id_in_uterm id1 "A"  utm)))^" } -> {L |- "^(uterm_to_string (rename_id_in_uterm id2 (String.capitalize id2) (rename_id_in_uterm id1 "B"  utm)))^"} -> A = B. \n") (List.combine ids mts) in 
+	    let detstrl = List.map (fun (id3, ((id1,ty1),(id2,ty2),utm)) -> "Theorem "^(ty_to_string ty1)^"_uniq_in_"^id3^": forall G E A B -> member ("^(uterm_to_string (rename_id_in_uterm id2 (String.capitalize id2) (rename_id_in_uterm id1 "A"  utm)))^") G -> member ("^(uterm_to_string (rename_id_in_uterm id2 (String.capitalize id2) (rename_id_in_uterm id1 "B"  utm)))^") G -> A = B. \n") (List.combine ids mts) in 
 	    fprintf !out "%s" (String.concat "" detstrl);
 	    let holdbuf = ref !lexbuf in
 	    lexbuf := Lexing.from_string cdef;
