@@ -354,6 +354,12 @@ let uterm_to_term sub t =
   in
     aux t
 
+let rec rename_id_in_uterm id nid ut = 
+  match ut with
+      | UCon(p, id', ty) -> if (id = id') then UCon(p, nid, ty) else ut
+      | ULam(p, id', ty, t) -> if (id = id') then ut else ULam(p,id', ty, (rename_id_in_uterm id nid t)) 
+      | UApp(p, t1, t2) -> UApp(p, (rename_id_in_uterm id nid t1), (rename_id_in_uterm id nid t2))
+
 let uterm_to_string t =
   term_to_string (uterm_to_term [] t)
 

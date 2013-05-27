@@ -537,7 +537,6 @@ let rec process () =
 		    let idt = List.map term_to_string tt in
 		    let id3 = (term_to_string th) in
 		    let pty = (lookup_const !sign id3) in
-(*		    fprintf !out "Block formed of '%s' of type '%s.'\n" id3 (ty_to_string pty); *)
 		    begin match pty with
 		    | Ty(tys, bty) -> 
 			let idtys = List.combine idt tys in
@@ -547,43 +546,58 @@ let rec process () =
 (*			fprintf !out "Exists bound variable %s has type %s.\n" id1 (ty_to_string ty1);
 			fprintf !out "Nabla bound variable %s has type %s.\n" id2 (ty_to_string ty2); *)
 			add_block id ((id1,ty1),(id2,ty2),ut);
-                        (* pruning lemma  *)
-			let thmname = "member_prune_"^(ty_to_string ty2) in 
+			let ty1str = ty_to_string ty1 in
+			let ty2str = ty_to_string ty2 in
+			let freshname = "fresh_"^ty2str^"_in_"^ty1str in
+			let prnname = "member_prune_"^ty2str in
 			begin try 
-			   let _ = get_lemma thmname in ()
-			with _ -> 
-			  let thmstmt = "forall G E, nabla (n:"^(ty_to_string ty2)^"),member (E n) G -> (exists E', E = x\\E')" in
-			  let thmstr = "Theorem "^thmname^": "^thmstmt^"." in
-			  let lexstr = ref (Lexing.from_string thmstr) in
-			  let input = Parser.top_command Lexer.token !lexstr in
-			  begin match input with
-                          | Theorem(name,uthm) ->             
-			      let thm = type_umetaterm ~sr:!sr ~sign:!sign uthm in
-			      check_theorem thm ;
-			      theorem thm ;
-			      (*pruning proof *)
-			      let proofstr = "induction on 1. intros. case H1. search. apply IH to H2. search." in
-			      let holdbuf = ref !lexbuf in
-			      lexbuf := Lexing.from_string proofstr;
-			      begin try
-				process_proof name ;
-				lexbuf := !holdbuf;
-				compile (CTheorem(name, thm)) ;
-				add_lemma name thm ;
-			      with AbortProof -> 
-				lexbuf := !holdbuf; () end
-                          |    _   -> failwith "Internal block error(1)"			  
-			  end end 
-		    end
+(*			  Ugh, I don't check that frenchname wasn't defined before as I define prunelemma and freshlemma together...   
+			  check_noredef [freshname];
+			  fprintf !out "freshOK"; *)
+			  let _ = get_lemma prnname in 
+			   ()
+			with _ ->
+			(* fresh lemma *)
+			  let freshstr = "Define "^freshname^" : "^ty2str^" -> "^ty1str^" -> prop by \n nabla n, "^freshname^" n X." in
+                        (* pruning lemma  *)
+			  let prnstr = "Theorem "^prnname^" : forall G E, nabla (n:"^ty2str^"),member (E n) G -> (exists E', E = x\\E')." in
+			  (*pruning proof *)
+			  let prnprf = "induction on 1. intros. case H1. search. apply IH to H2. search." in
+			  let thmstr = freshstr^"\n"^prnstr^"\n"^prnprf in
+			  let holdbuf = ref !lexbuf in 
+			  lexbuf := (Lexing.from_string thmstr);
+			  begin try 
+			  process ();
+			  lexbuf := !holdbuf; 
+			  with e ->
+			    lexbuf := !holdbuf; 
+			    raise e;
+			  end (* end try process *)
+			end (* end try get lemma *)
+		    end  (* match pty *)
 		|   _ -> failwith "General block not implemented yet(3)."
-		end
+		end (* match observe *)
 	| Schema ((id,ty),ids) -> (* STUB *)
-	    let _mts = List.map get_block ids in
-              check_noredef [id]
-       (* let nilmt =  (UApp(UCon(id,, UTrue) in
-	       let mt = UBinding(Metaterm.Exists,[(id1,Term.fresh_tyvar ())],UBinding(Metaterm.Nabla,[(id2,Term.fresh_tyvar())],UPred(t,Metaterm.Irrelevant))) in
-             let (local_sr, local_sign) = locally_add_global_consts [(id,ty)] in *)
-              
+            check_noredef [id];
+	   
+	    let mts = List.map get_block ids in
+	    (* context definition *)
+	    let clstrl = List.map (fun ((id1,ty1),(id2,ty2),utm) -> "nabla "^id2^", "^id^" ("^(uterm_to_string utm)^" :: G) := "^id^" G;\n") mts in
+	    let cdef = "Define "^id^":"^(ty_to_string ty)^" by \n"^(String.concat "" clstrl)^id^" nil." in
+	    (* inversion lemma *)
+	    let invstrl = List.map (fun ((id1,ty1),(id2,ty2),utm) -> " (exists "^id1^" "^(String. capitalize id2)^", E = "^(uterm_to_string (rename_id_in_uterm id2 (String.capitalize id2)  utm))^" /\\ fresh_"^(ty_to_string ty2)^"_in_"^(ty_to_string ty1)^" "^(String. capitalize id2)^" "^id1^") ") mts in
+	    let invstr = "Theorem "^id^"_inv : forall E G, \n "^id^" G -> member E G ->"^(String.concat "\\/ \n" invstrl)^". \n" in
+	    fprintf !out "%s" invstr;
+	    (* determinicity lemma *)
+	    let detstrl = List.map (fun (id3, ((id1,ty1),(id2,ty2),utm)) -> "Theorem "^(ty_to_string ty1)^"_uniq_in_"^id3^": forall L E A B -> {L |- "^(uterm_to_string (rename_id_in_uterm id2 (String.capitalize id2) (rename_id_in_uterm id1 "A"  utm)))^" } -> {L |- "^(uterm_to_string (rename_id_in_uterm id2 (String.capitalize id2) (rename_id_in_uterm id1 "B"  utm)))^"} -> A = B. \n") (List.combine ids mts) in 
+	    fprintf !out "%s" (String.concat "" detstrl);
+	    let holdbuf = ref !lexbuf in
+	    lexbuf := Lexing.from_string cdef;
+	    begin try 
+	      process ();
+	      lexbuf := !holdbuf;
+	    with AbortProof ->
+	      lexbuf := !holdbuf; () end
         | CoDefine(idtys, udefs) ->
             let ids = List.map fst idtys in
               check_noredef ids;
@@ -639,11 +653,12 @@ let rec process () =
         if !switch_to_interactive then
           perform_switch_to_interactive ()
         else begin
-          fprintf !out "Goodbye.\n%!" ;
+	  fprintf !out "Goodbye.\n%!" ;
           ensure_finalized_specification () ;
           write_compilation () ;
           if !annotate then fprintf !out "</pre>\n%!" ;
-          exit 0
+	  failwith "eof"
+         (*  exit 0 *)
         end
     | Parsing.Parse_error ->
         eprintf "Syntax error%s.\n%!" (position !lexbuf) ;

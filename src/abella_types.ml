@@ -183,7 +183,7 @@ let top_command_to_string tc =
         else
           sprintf "Split %s" id
     | Block (id, ((id1,ty1),(id2,ty2),t)) ->
-	sprintf "Block %s := exists (%s,%s), nabla (%s,%s), %s" id id1 (ty_to_string ty1) id2 (ty_to_string ty2) (uterm_to_string t)
+	sprintf "Block %s := exists %s, nabla %s, %s" id id1 id2 (uterm_to_string t)
     | Schema ((id,ty), ids) ->
          sprintf "Schema %s:%s := %s" id (ty_to_string ty) (id_list_to_string ids)
     | TopCommon(cc) ->
