@@ -1,3 +1,0 @@
-Block ofb := exists A, nabla x, of x A.
-
-Schema ctx: olist -> pop := ofb.
