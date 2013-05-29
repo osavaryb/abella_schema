@@ -189,6 +189,11 @@ let top_command_to_string tc =
     | TopCommon(cc) ->
         common_command_to_string cc
 
+let rec str_repeat n s = 
+  match n with
+  |  0 -> ""
+  |  n -> s^(str_repeat (n-1) s)
+
 let withs_to_string ws =
   String.concat ", "
     (List.map (fun (x,t) -> x ^ " = " ^ (uterm_to_string t)) ws)

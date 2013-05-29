@@ -43,7 +43,7 @@
 %}
 
 %token IMP COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ
-%token IND INST APPLY CASE FROM SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ
+%token IND INST APPLY CASE FROM SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ SCHINV SCHUNI
 %token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT BY
 %token SPLIT SPLITSTAR UNFOLD KEEP CLEAR SPECIFICATION SEMICOLON
 %token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY SHOW SCHEMA BLOCK
@@ -137,6 +137,8 @@ id:
   | KKIND                                { "Kind" }
   | SCHEMA                               { "Schema" }
   | BLOCK                                { "Block" }
+  | SCHINV                               { "inversion"}
+  | SCHUNI                               { "unique" }
 
 /* Annotated ID */
 aid:

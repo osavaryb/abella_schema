@@ -416,12 +416,73 @@ let rec process_proof name =
             fprintf !out "%s%s.%s\n%!" pre (command_to_string input) post
         end ;
         save_undo_state () ;
-        begin match input with
-          | Induction(args, hn) -> induction ?name:hn args
-          | CoInduction hn -> coinduction ?name:hn ()
-          | Apply(h, args, ws, hn) -> apply ?name:hn h args ws ~term_witness
-          | Backchain(h, ws) -> backchain h ws ~term_witness
-          | Cut(h, arg, hn) -> cut ?name:hn h arg
+      begin match input with
+      | Induction(args, hn) -> induction ?name:hn args
+      | CoInduction hn -> coinduction ?name:hn ()
+   | Apply(h, args, ws, hn) -> 
+  let h = begin match h with 
+   | "inversion" ->
+   begin match (get_hyp (List.hd args)) with
+   | Pred ( t, r) ->
+   let schName = get_head_id t in
+   let hypName = "Hinv"^schName in
+   begin try
+     let _ = get_hyp hypName in
+     hypName
+   with  _ -> 
+   let ( _schTy, bids) = get_schema schName in
+   let invThmStr = make_inv_stmt schName bids in
+   let invPrfStr = make_inv_prf  bids in
+   let aStr = hypName^": assert "^invThmStr^invPrfStr in
+   let holdbuf = ref !lexbuf in
+   lexbuf := Lexing.from_string aStr;
+   begin try 
+   process_proof "";
+   lexbuf := !holdbuf;
+    hypName
+   with AbortProof ->
+   lexbuf := !holdbuf; failwith "error in inv" end   end
+   | _ -> failwith "unexpected in inversion" 
+   end
+   |  "unique" -> 
+		    begin match (get_hyp (List.hd args)) with
+		    | Pred (t,r) ->
+			let schName = get_head_id t in
+			let ( _schTy, _bids) = get_schema schName in
+			begin match (get_hyp (List.hd (List.tl args))) with
+			| Pred (t1,r1) ->
+			    let pstr = (get_head_id (get_nth_id 1 t1)) in
+			    let hypName = "Huni"^pstr^schName in
+(* for each block in ids, add 1 to the list ads if the predicate get introduced, 0 otherwise.*)
+			    let ( _schTy, bids) = get_schema schName in
+			    let mts = List.map get_block bids in
+			    let ads = List.map (fun ((id1,ty1),(id2,ty2),utm) ->  
+			      begin match observe (uterm_to_term [] utm) with 
+			      |  App(th,tt) -> 
+				   if  (pstr = (term_to_string th)) then 1 else 0
+			      |	 _ ->  0
+			      end) mts in
+			    (* get a canonical block, first with 1, and generate the statement from it *)
+			    let uniThmStr = make_uni_stmt schName ( List.assoc 1 (List.combine ads mts)) in
+			    let uniPrfStr = make_uni_prf schName mts ads in
+			    let aStr = hypName^" : assert "^uniThmStr^uniPrfStr in
+			    let holdbuf = ref !lexbuf in
+			    lexbuf := Lexing.from_string aStr;
+			    begin try 
+			      process_proof "";
+			      lexbuf := !holdbuf;
+			      hypName
+			    with AbortProof ->
+			      lexbuf := !holdbuf; failwith "error in uniq" end  
+			| _ -> failwith "unexpected in inversion" 
+			end
+		    | _ -> failwith "unexpected in inversion" 
+		    end
+		|   _ -> h
+		end in
+     apply ?name:hn h args ws ~term_witness;
+      | Backchain(h, ws) -> backchain h ws ~term_witness
+      | Cut(h, arg, hn) -> cut ?name:hn h arg
           | CutFrom(h, arg, t, hn) -> cut_from ?name:hn h arg t
           | SearchCut(h, hn) -> search_cut ?name:hn h
           | Inst(h, ws, hn) -> inst ?name:hn h ws
@@ -471,7 +532,7 @@ let rec process_proof name =
             perform_switch_to_interactive ()
           else begin
             fprintf !out "Proof NOT completed.\n%!" ;
-            exit 1
+            failwith "eof"
           end
       | AbortProof ->
           fprintf !out "Proof aborted.\n%!" ;
@@ -551,9 +612,6 @@ let rec process () =
 			let freshname = "fresh_"^ty2str^"_in_"^ty1str in
 			let prnname = "member_prune_"^ty2str in
 			begin try 
-(*			  Ugh, I don't check that frenchname wasn't defined before as I define prunelemma and freshlemma together...   
-			  check_noredef [freshname];
-			  fprintf !out "freshOK"; *)
 			  let _ = get_lemma prnname in 
 			   ()
 			with _ ->
@@ -579,25 +637,29 @@ let rec process () =
 		end (* match observe *)
 	| Schema ((id,ty),ids) -> (* STUB *)
             check_noredef [id];
-	   
+	    add_schema id (ty,ids);
 	    let mts = List.map get_block ids in
 	    (* context definition *)
-	    let clstrl = List.map (fun ((id1,ty1),(id2,ty2),utm) -> "nabla "^id2^", "^id^" ("^(uterm_to_string utm)^" :: G) := "^id^" G;\n") mts in
-	    let cdef = "Define "^id^":"^(ty_to_string ty)^" by \n"^(String.concat "" clstrl)^id^" nil." in
-	    (* inversion lemma *)
+	    let clstrl = List.map (fun ((id1,ty1),(id2,ty2),utm) -> "nabla "^id2^", "^id^" ("^(uterm_to_string utm)^" :: G) := "^id^" G") mts in
+	    let cdef = begin match List.length ids with
+	    |  0 -> "Define "^id^":"^(ty_to_string ty)^" by \n"^id^" nil."
+	    |  _ -> "Define "^id^":"^(ty_to_string ty)^" by \n"^id^" nil;"^(String.concat ";\n" clstrl)^"." end in
+(*	    (* inversion lemma *)
 	    let invstrl = List.map (fun ((id1,ty1),(id2,ty2),utm) -> " (exists "^id1^" "^(String. capitalize id2)^", E = "^(uterm_to_string (rename_id_in_uterm id2 (String.capitalize id2)  utm))^" /\\ fresh_"^(ty_to_string ty2)^"_in_"^(ty_to_string ty1)^" "^(String. capitalize id2)^" "^id1^") ") mts in
 	    let invstr = "Theorem "^id^"_inv : forall E G, \n "^id^" G -> member E G ->"^(String.concat "\\/ \n" invstrl)^". \n" in
-	    fprintf !out "%s" invstr;
+	    let invprf = "induction on 1. intros. case H1."^(str_repeat (List.length ids) "case H2. search. apply IH to H3 H4. search. \n")^"case H2." in
+	 (*   fprintf !out "%s" invstr; *)
 	    (* determinicity lemma *)
-	    let detstrl = List.map (fun (id3, ((id1,ty1),(id2,ty2),utm)) -> "Theorem "^(ty_to_string ty1)^"_uniq_in_"^id3^": forall G E A B -> member ("^(uterm_to_string (rename_id_in_uterm id2 (String.capitalize id2) (rename_id_in_uterm id1 "A"  utm)))^") G -> member ("^(uterm_to_string (rename_id_in_uterm id2 (String.capitalize id2) (rename_id_in_uterm id1 "B"  utm)))^") G -> A = B. \n") (List.combine ids mts) in 
-	    fprintf !out "%s" (String.concat "" detstrl);
+	    let _detstrl = List.map (fun (id3, ((id1,ty1),(id2,ty2),utm)) -> "Theorem "^(ty_to_string ty1)^"_uniq_in_"^id3^": forall G E A B -> member ("^(uterm_to_string (rename_id_in_uterm id2 (String.capitalize id2) (rename_id_in_uterm id1 "A"  utm)))^") G -> member ("^(uterm_to_string (rename_id_in_uterm id2 (String.capitalize id2) (rename_id_in_uterm id1 "B"  utm)))^") G -> A = B. \n") (List.combine ids mts) in 
+	    let cdef = cdef^"\n"^invstr^"\n"^invprf in *)
+(*	    fprintf !out "%s" (String.concat "" detstrl); *)
 	    let holdbuf = ref !lexbuf in
 	    lexbuf := Lexing.from_string cdef;
 	    begin try 
 	      process ();
 	      lexbuf := !holdbuf;
 	    with AbortProof ->
-	      lexbuf := !holdbuf; () end
+	      lexbuf := !holdbuf; () end 
         | CoDefine(idtys, udefs) ->
             let ids = List.map fst idtys in
               check_noredef ids;
@@ -672,6 +734,7 @@ let rec process () =
         interactive_or_exit ()
   done with
   | Failure "eof" -> ()
+
 
 
 (* Command line and startup *)

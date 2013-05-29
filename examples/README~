@@ -1,0 +1,11 @@
+ADDED SO FAR:
+Lexer, Parser, Pretty-Printer for block with 1 exists, 1 nabla, 1 field.
+Lexer, Parser, PP for schema with a list of simple block.
+Function add_block, get_block in prover.ml to accumulate blocks at defn and get them at schema declaration.
+
+
+WIP:
+working on processing of block in abella.ml
+
+TODO:
+working on processing of block in schema.ml

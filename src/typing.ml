@@ -345,6 +345,32 @@ let uterms_extract_if test ts =
 let uterm_nominals_to_tyctx t =
   ids_to_fresh_tyctx (uterms_extract_if is_nominal_name [t])
 
+
+let get_nth_id n tm =
+  begin match observe (hnorm tm) with
+  | App ( t , ts ) -> 
+      let t = 
+      begin match n with
+      |	0 -> t
+      |	_ -> (List.nth ts (n-1))
+      end in
+       t
+  | _ -> failwith "Unexpected tm in get_nth_id"
+  end
+
+
+
+let get_head_id tm =
+  term_to_string (get_nth_id 0 tm)
+(*  begin match observe (hnorm tm) with
+  | App ( t , _ ) -> 
+      (begin match observe (hnorm t) with
+      |  Var {name = op} -> op
+      |   _ -> failwith "..."
+      end)
+  | _ -> failwith "Not a pred"
+  end *)
+
 let uterm_to_term sub t =
   let rec aux t =
     match t with

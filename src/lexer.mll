@@ -133,6 +133,8 @@ rule token = parse
 | "monotone"         { MONOTONE }
 | "permute"          { PERMUTE }
 | "rename"           { RENAME }
+| "inversion"        { SCHINV }
+| "unique"           { SCHUNI }
 
 | "Set"              { SET }
 | "Show"             { SHOW }

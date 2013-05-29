@@ -34,6 +34,9 @@ let lemmas : lemmas ref = ref []
 type blocks = (id * ((id * ty) * (id * ty) * uterm)) list
 let blocks : blocks ref = ref []
 
+type schemas = (id * (ty * (id list))) list
+let schemas : schemas ref = ref []
+
 type subgoal = unit -> unit
 let subgoals : subgoal list ref = ref []
 
@@ -258,6 +261,37 @@ let get_block name =
  try List.assoc name !blocks 
  with Not_found -> failwith (sprintf "Block %s undefined." name)
 
+let add_schema name schema =
+ schemas := (name, schema)::!schemas
+
+let get_schema name =
+ try List.assoc name !schemas 
+ with Not_found -> failwith (sprintf "Block %s undefined." name)
+
+let make_inv_stmt id ids = 
+  	    let mts = List.map get_block ids in
+	    let invstrl = List.map (fun ((id1,ty1),(id2,ty2),utm) -> " (exists "^id1^" "^(String. capitalize id2)^", E = "^(uterm_to_string (rename_id_in_uterm id2 (String.capitalize id2)  utm))^" /\\ fresh_"^(ty_to_string ty2)^"_in_"^(ty_to_string ty1)^" "^(String. capitalize id2)^" "^id1^") ") mts in
+	    "forall E G, \n "^id^" G -> member E G ->"^(String.concat "\\/ \n" invstrl)^". \n"
+
+let make_inv_prf ids =
+  "IHinv: induction on 1. intros H1inv H2inv. H3inv : case H1inv. case H2inv."^(str_repeat (List.length ids) "H4inv : case H2inv. search. apply IHinv to H3inv H4inv. search. \n")
+
+(* schemaname, canonical block *)
+let make_uni_stmt id ((id1,ty1),(id2,ty2),utm) =
+  "forall G "^(String.capitalize id2)^" A B, "^id^" G -> member ("^(uterm_to_string (rename_id_in_uterm id2 (String.capitalize id2) (rename_id_in_uterm id1 "A"  utm)))^") G -> member ("^(uterm_to_string (rename_id_in_uterm id2 (String.capitalize id2) (rename_id_in_uterm id1 "B"  utm)))^") G -> A = B." 
+
+
+(* schemaname, block names, blocks, block_include *)
+ let make_uni_prf id mts ads = 
+  let h1 =   "IHuni: induction on 1. intros H1uni H2uni H3uni. H4uni: case H1uni. case H2uni.\n" in
+  let h2l = List.map (fun (((id1,ty1),(id2,ty2),utm),n) -> match n with
+  | 1 -> "H5uni: case H2uni. H6uni: case H3uni. search. apply member_prune_"^(ty_to_string ty2)^" to H6uni.\n"^"H6uni: case H3uni. apply member_prune_"^(ty_to_string ty2)^" to H5uni. apply IHuni to H4uni H5uni H6uni. search."
+  | _ -> "H5uni:case H2uni. H6uni: case H3uni. apply IHuni to H4uni H5uni H6uni. search."
+) (List.combine mts ads) in
+  h1^(String.concat "" h2l)
+
+(* END OF SCHEMA *)
+
 let get_hyp_or_lemma name =
   try
     get_hyp name
@@ -473,13 +507,59 @@ let search_cut ?name h =
     | _ ->
         failwith "Cut can only be used on hypotheses of the form {... |- ...}"
 
-(* Apply *)
 
-let get_some_hyp name =
-  if name = "_" then
-    None
-  else
-    Some (get_hyp name)
+(* Case analysis *)
+
+(* Lifting during case analysis may cause some variables to be bound to
+   themselves. We need to update sequent.vars to reflect this. *)
+let update_self_bound_vars () =
+  sequent.vars <-
+    sequent.vars |> List.map
+        (fun (id, term) ->
+           match term_head_var term with
+             | Some v when term_to_name v = id ->
+                 (id, v)
+             | _ -> (id, term))
+
+let case_to_subgoal ?name case =
+  let saved_sequent = copy_sequent () in
+    fun () ->
+      set_sequent saved_sequent ;
+      List.iter add_if_new_var case.new_vars ;
+      List.iter (add_hyp ?name) case.new_hyps ;
+      Term.set_bind_state case.bind_state ;
+      update_self_bound_vars ()
+
+let get_defs term =
+  match term with
+    | Pred(p, _) ->
+        begin try
+          let (_, mutual, defs) = H.find defs_table (term_head_name p) in
+            (mutual, defs)
+        with Not_found ->
+          failwith "Cannot perform case-analysis on undefined atom"
+        end
+    | _ -> ([], [])
+
+let case ?name ?(keep=false) str =
+  let term = get_hyp str in
+  let global_support =
+    (List.flatten_map metaterm_support
+       (List.map (fun h -> h.term) sequent.hyps)) @
+      (metaterm_support sequent.goal)
+  in
+  let (mutual, defs) = get_defs term in
+  let cases =
+    Tactics.case ~used:sequent.vars ~sr:!sr ~clauses:!clauses
+      ~mutual ~defs ~global_support term
+  in
+    if not keep then remove_hyp str ;
+    add_subgoals (List.map (case_to_subgoal ?name) cases) ;
+    next_subgoal ()
+
+
+
+(* Assert *)
 
 let goal_to_subgoal g =
   let saved_sequent = copy_sequent () in
@@ -488,6 +568,35 @@ let goal_to_subgoal g =
       set_sequent saved_sequent ;
       Term.set_bind_state bind_state ;
       sequent.goal <- g
+
+
+let delay_mainline ?name new_hyp detour_goal =
+  if search_goal detour_goal then
+    add_hyp ?name new_hyp
+  else
+    let mainline =
+      case_to_subgoal ?name
+        { bind_state = get_bind_state () ;
+          new_vars = [] ;
+          new_hyps = [new_hyp] }
+    in
+    let detour = goal_to_subgoal detour_goal in
+      (* Using add_subgoals to take care of annotations *)
+      add_subgoals ~mainline [detour] ;
+      next_subgoal ()
+
+let assert_hyp ?name term =
+  let term = type_umetaterm ~sr:!sr ~sign:!sign ~ctx:sequent.vars term in
+    delay_mainline ?name term term
+
+
+(* Apply *)
+
+let get_some_hyp name =
+  if name = "_" then
+    None
+  else
+    Some (get_hyp name)
 
 let ensure_no_logic_variable terms =
   let logic_vars = List.flatten_map (metaterm_vars_alist Logic) terms in
@@ -535,6 +644,9 @@ let partition_obligations obligations =
           | None -> Either.Left g
           | Some w -> Either.Right (g, w))
        obligations)
+
+
+
 
 let apply ?name ?(term_witness=ignore) h args ws =
   let stmt = get_hyp_or_lemma h in
@@ -589,56 +701,6 @@ let backchain ?(term_witness=ignore) h ws =
   let obligation_subgoals = List.map goal_to_subgoal remaining_obligations in
     add_subgoals obligation_subgoals ;
     next_subgoal ()
-
-(* Case analysis *)
-
-(* Lifting during case analysis may cause some variables to be bound to
-   themselves. We need to update sequent.vars to reflect this. *)
-let update_self_bound_vars () =
-  sequent.vars <-
-    sequent.vars |> List.map
-        (fun (id, term) ->
-           match term_head_var term with
-             | Some v when term_to_name v = id ->
-                 (id, v)
-             | _ -> (id, term))
-
-let case_to_subgoal ?name case =
-  let saved_sequent = copy_sequent () in
-    fun () ->
-      set_sequent saved_sequent ;
-      List.iter add_if_new_var case.new_vars ;
-      List.iter (add_hyp ?name) case.new_hyps ;
-      Term.set_bind_state case.bind_state ;
-      update_self_bound_vars ()
-
-let get_defs term =
-  match term with
-    | Pred(p, _) ->
-        begin try
-          let (_, mutual, defs) = H.find defs_table (term_head_name p) in
-            (mutual, defs)
-        with Not_found ->
-          failwith "Cannot perform case-analysis on undefined atom"
-        end
-    | _ -> ([], [])
-
-let case ?name ?(keep=false) str =
-  let term = get_hyp str in
-  let global_support =
-    (List.flatten_map metaterm_support
-       (List.map (fun h -> h.term) sequent.hyps)) @
-      (metaterm_support sequent.goal)
-  in
-  let (mutual, defs) = get_defs term in
-  let cases =
-    Tactics.case ~used:sequent.vars ~sr:!sr ~clauses:!clauses
-      ~mutual ~defs ~global_support term
-  in
-    if not keep then remove_hyp str ;
-    add_subgoals (List.map (case_to_subgoal ?name) cases) ;
-    next_subgoal ()
-
 
 (* Induction *)
 
@@ -750,26 +812,6 @@ let coinduction ?name () =
     sequent.goal <- new_goal
 
 
-(* Assert *)
-
-let delay_mainline ?name new_hyp detour_goal =
-  if search_goal detour_goal then
-    add_hyp ?name new_hyp
-  else
-    let mainline =
-      case_to_subgoal ?name
-        { bind_state = get_bind_state () ;
-          new_vars = [] ;
-          new_hyps = [new_hyp] }
-    in
-    let detour = goal_to_subgoal detour_goal in
-      (* Using add_subgoals to take care of annotations *)
-      add_subgoals ~mainline [detour] ;
-      next_subgoal ()
-
-let assert_hyp ?name term =
-  let term = type_umetaterm ~sr:!sr ~sign:!sign ~ctx:sequent.vars term in
-    delay_mainline ?name term term
 
 (* Object logic monotone *)
 

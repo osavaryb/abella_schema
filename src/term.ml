@@ -438,6 +438,12 @@ let term_to_name t =
 let term_to_pair t =
   (term_to_name t, t)
 
+
+
+
+
+
+
 let is_free t =
   match t with
     | Ptr {contents=V _} -> true

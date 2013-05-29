@@ -1,0 +1,31 @@
+Specification "unit".
+
+Define ctx: olist -> prop by
+ctx nil;
+nabla x, ctx (of x A::L) := ctx L;
+nabla x, ctx (of x A::L) := ctx L.
+
+
+% Block ofb := exists A, nabla x, of.
+
+
+Block ofb := exists A, nabla x, of x A.
+
+% Block ofb2 := exists A, nabla x, of x A.
+ 
+
+% induction on 1. intros. case H1.
+% search.
+% apply IH to H2. search.
+
+% Block ofb := exists (A:ty), nabla (x:tm), of x A.
+
+ Schema ctx' : olist -> prop := ofb.
+
+% Theorem ctx'_inv: forall E G, ctx' G -> member E G -> (exists A X, E = of X A /\ fresh_tm_in_ty X A).
+% intros. apply inversion to H1 H2. search.
+
+
+ Theorem ctx'_of_uniq : forall G X A B,  ctx' G -> member (of X A) G -> member (of X B) G -> A = B.
+ intros. apply unique to H1 H2 H3. search.
+
