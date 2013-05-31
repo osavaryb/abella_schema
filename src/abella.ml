@@ -430,11 +430,12 @@ let rec process_proof name =
      let _ = get_hyp hypName in
      hypName
    with  _ -> 
-   let ( _schTy, bids) = get_schema schName in
+   let bids = get_schema schName in
    let invThmStr = make_inv_stmt schName bids in
    let invPrfStr = make_inv_prf  bids in
    let aStr = hypName^": assert "^invThmStr^invPrfStr in
    let holdbuf = ref !lexbuf in
+   fprintf !out "/* %s */ \n" aStr;
    lexbuf := Lexing.from_string aStr;
    begin try 
    process_proof "";
@@ -448,13 +449,12 @@ let rec process_proof name =
 		    begin match (get_hyp (List.hd args)) with
 		    | Pred (t,r) ->
 			let schName = get_head_id t in
-			let ( _schTy, _bids) = get_schema schName in
 			begin match (get_hyp (List.hd (List.tl args))) with
 			| Pred (t1,r1) ->
 			    let pstr = (get_head_id (get_nth_id 1 t1)) in
 			    let hypName = "Huni"^pstr^schName in
 (* for each block in ids, add 1 to the list ads if the predicate get introduced, 0 otherwise.*)
-			    let ( _schTy, bids) = get_schema schName in
+			    let bids = get_schema schName in
 			    let mts = List.map get_block bids in
 			    let ads = List.map (fun ((id1,ty1),(id2,ty2),utm) ->  
 			      begin match observe (uterm_to_term [] utm) with 
@@ -467,6 +467,7 @@ let rec process_proof name =
 			    let uniPrfStr = make_uni_prf schName mts ads in
 			    let aStr = hypName^" : assert "^uniThmStr^uniPrfStr in
 			    let holdbuf = ref !lexbuf in
+			    fprintf !out "/* %s */ \n" aStr;
 			    lexbuf := Lexing.from_string aStr;
 			    begin try 
 			      process_proof "";
@@ -561,8 +562,8 @@ let rec process () =
     fprintf !out "Abella < %!" ;
     let input = Parser.top_command Lexer.token !lexbuf in
       if not !interactive then begin
-          let pre, post = if !annotate then "<b>", "</b>" else "", "" in
-            fprintf !out "%s%s.%s\n%!" pre (top_command_to_string input) post
+          let pre, post = if !annotate then "<b>", "</b>" else "", "" in 
+	    fprintf !out "%s%s.%s\n%!" pre (top_command_to_string input) post 
       end ;
       begin match input with
         | Theorem(name, thm) ->
@@ -595,14 +596,15 @@ let rec process () =
                check_noredef [id];
 	        begin match  observe (uterm_to_term [] ut) with 
 	        |  App(th,tt) ->
-		    let idt = List.map term_to_string tt in
 		    let id3 = (term_to_string th) in
 		    let pty = (lookup_const !sign id3) in
 		    begin match pty with
 		    | Ty(tys, bty) -> 
-			let idtys = List.combine idt tys in
-			let ty1 = List.assoc id1 idtys in
-			let ty2 = List.assoc id2 idtys in
+(*			fprintf !out "%s\n" ((String.concat " -> " (List.map ty_to_string tys))^" -> "^bty); *)
+			let ty1 = get_ty_from_tml id1 (List.map observe tt) tys sign in
+			let ty2 = get_ty_from_tml id2 (List.map observe tt) tys sign in
+			(* let ty1 = List.assoc id1 idtys in*)
+(*			let ty2 =  List.assoc id2 idtys in  *)
 (*			fprintf !out "We have  %s.\n" (idtys_to_string idtys); *)
 (*			fprintf !out "Exists bound variable %s has type %s.\n" id1 (ty_to_string ty1);
 			fprintf !out "Nabla bound variable %s has type %s.\n" id2 (ty_to_string ty2); *)
@@ -635,15 +637,16 @@ let rec process () =
 		    end  (* match pty *)
 		|   _ -> failwith "General block not implemented yet(3)."
 		end (* match observe *)
-	| Schema ((id,ty),ids) -> (* STUB *)
+	| Schema (id,ids) -> (* STUB *)
             check_noredef [id];
-	    add_schema id (ty,ids);
+	    add_schema id ids;
+	    let schTy = "olist -> prop" in
 	    let mts = List.map get_block ids in
 	    (* context definition *)
 	    let clstrl = List.map (fun ((id1,ty1),(id2,ty2),utm) -> "nabla "^id2^", "^id^" ("^(uterm_to_string utm)^" :: G) := "^id^" G") mts in
 	    let cdef = begin match List.length ids with
-	    |  0 -> "Define "^id^":"^(ty_to_string ty)^" by \n"^id^" nil."
-	    |  _ -> "Define "^id^":"^(ty_to_string ty)^" by \n"^id^" nil;"^(String.concat ";\n" clstrl)^"." end in
+	    |  0 -> "Define "^id^":"^schTy^" by \n"^id^" nil."
+	    |  _ -> "Define "^id^":"^schTy^" by \n"^id^" nil;"^(String.concat ";\n" clstrl)^"." end in
 (*	    (* inversion lemma *)
 	    let invstrl = List.map (fun ((id1,ty1),(id2,ty2),utm) -> " (exists "^id1^" "^(String. capitalize id2)^", E = "^(uterm_to_string (rename_id_in_uterm id2 (String.capitalize id2)  utm))^" /\\ fresh_"^(ty_to_string ty2)^"_in_"^(ty_to_string ty1)^" "^(String. capitalize id2)^" "^id1^") ") mts in
 	    let invstr = "Theorem "^id^"_inv : forall E G, \n "^id^" G -> member E G ->"^(String.concat "\\/ \n" invstrl)^". \n" in

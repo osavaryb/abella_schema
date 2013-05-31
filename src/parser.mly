@@ -403,7 +403,7 @@ pure_top_command:
   | SSPLIT id DOT                        { Types.SSplit($2, []) }
   | SSPLIT id AS id_list DOT             { Types.SSplit($2, $4) }
   | BLOCK id DEFEQ blockdef DOT              { Types.Block($2,$4) } 
-  | SCHEMA id_ty DEFEQ id_list DOT          { Types.Schema($2,$4) }
+  | SCHEMA id DEFEQ id_list DOT          { Types.Schema($2,$4) }
 
 common_command:
   | SET id id DOT                        { Types.Set($2, Types.Str $3) }

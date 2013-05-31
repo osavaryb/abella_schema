@@ -34,7 +34,7 @@ let lemmas : lemmas ref = ref []
 type blocks = (id * ((id * ty) * (id * ty) * uterm)) list
 let blocks : blocks ref = ref []
 
-type schemas = (id * (ty * (id list))) list
+type schemas = (id * (id list)) list
 let schemas : schemas ref = ref []
 
 type subgoal = unit -> unit

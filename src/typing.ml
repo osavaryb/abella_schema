@@ -165,6 +165,24 @@ let lookup_const (_, ctable) id =
   with
     | Not_found -> failwith ("Unknown constant: " ^ id)
 
+(* SCHEMA *)
+let rec get_ty_from_tml id tml tyl sign = 
+begin match (tml,tyl) with
+| (App(th,tt)::tl,(tyh::tytl)) ->
+    begin try 
+      let id3 = (term_to_string th) in
+      let pty = (lookup_const !sign id3) in
+      let Ty(tys,bty) =  pty in
+      get_ty_from_tml id (List.map observe tt) tys sign
+    with
+    | Not_found -> get_ty_from_tml id tl tytl sign
+    end 
+| (Var v)::tl, tyh::tytl ->
+    if (v.name = id) then tyh else get_ty_from_tml id tl tytl sign 
+|  _ -> raise Not_found
+end
+(* end SCHEMA *)
+
 (** Pervasive signature *)
 
 let pervasive_sign =

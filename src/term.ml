@@ -33,14 +33,14 @@ type var = {
 
 type tyctx = (id * ty) list
 
-type term = rawterm
+type term = rawterm 
 and rawterm =
   | Var  of var
   | DB   of int
   | Lam  of tyctx * term
   | App  of term * term list
   | Susp of term * int * int * env
-  | Ptr  of ptr
+  | Ptr  of ptr 
 and ptr = in_ptr ref
 and in_ptr = V of var | T of term
 and env = envitem list

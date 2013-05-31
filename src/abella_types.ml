@@ -60,7 +60,7 @@ type top_command =
   | SSplit of id * id list
   | TopCommon of common_command
   | Block of id * ((id * ty) * (id * ty) * uterm)
-  | Schema of (id * ty) * id list
+  | Schema of id * id list
 
 type compiled =
   | CTheorem of id * metaterm
@@ -184,8 +184,8 @@ let top_command_to_string tc =
           sprintf "Split %s" id
     | Block (id, ((id1,ty1),(id2,ty2),t)) ->
 	sprintf "Block %s := exists %s, nabla %s, %s" id id1 id2 (uterm_to_string t)
-    | Schema ((id,ty), ids) ->
-         sprintf "Schema %s:%s := %s" id (ty_to_string ty) (id_list_to_string ids)
+    | Schema (id, ids) ->
+         sprintf "Schema %s := %s" id (id_list_to_string ids)
     | TopCommon(cc) ->
         common_command_to_string cc
 
