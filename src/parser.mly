@@ -251,7 +251,7 @@ def:
   | metaterm DEFEQ metaterm              { ($1, $3) }
 
 blockdef:
- | EXISTS paid COMMA NABLA paid COMMA term   {($2,$5,$7)}
+ | EXISTS binding_list COMMA NABLA binding_list COMMA term   {($2,$5,$7)}
 
 /* {UBinding(Metaterm.Exists,[($2,Term.fresh_tyvar ())],UBinding(Metaterm.Nabla,[($5,Term.fresh_tyvar ())],UPred($7,Metaterm.Irrelevant)))}  */
 

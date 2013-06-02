@@ -31,7 +31,7 @@ type lemmas = (id * metaterm) list
 let lemmas : lemmas ref = ref []
 
 (* SCHEMA *)
-type blocks = (id * ((id * ty) * (id * ty) * uterm)) list
+type blocks = (id * ((id * ty) * ((id * ty) list) * uterm)) list
 let blocks : blocks ref = ref []
 
 type schemas = (id * (id list)) list
@@ -254,6 +254,90 @@ let get_lemma name =
   List.assoc name !lemmas
 
 (* SCHEMA *)
+let rec pairwiseEqual' t1l t2l =
+  begin match t1l with
+  |  t1::t1r ->
+      begin match t2l with
+      |	t2::t2r ->
+	  printf "Pairwise equal: %s =? %s \n %!" (term_to_string t1) (term_to_string t2);
+	  let eql = pairwiseEqual' t1r t2r in
+	  if (term_to_string t2) = (term_to_string t1) then
+	    1::eql
+                                       else
+	    0::eql
+      |	[] -> failwith "unexpected in pairwiseEqual'"
+      end
+  |  [] ->  []
+end
+
+
+let pairwiseEqual t1 t2 = 
+begin match t1 with
+| App (t1h,t1l) ->
+    begin match t2 with
+    | App (t2h,t2l) -> if (term_to_string t1h) = (term_to_string t2h) then
+	   pairwiseEqual' t1l t2l
+	  else
+	failwith "pairwiseEqual: dem terms can't be unified"
+    | _ -> failwith "unexpected in pairwiseEqual"
+    end
+| _ -> failwith "unexpected in pairwiseEqual"
+end
+
+
+(* Make one fresh definition for each pairs of exists, nabla bound variable *)
+(*exists bound variables, nabla bound variables, id paired with their type *)
+(* todo: add current list of added makeFreshGen so that we don't redef them *)
+let rec makeFreshGeneric' tys1 ty2 newDef =
+  begin match tys1 with
+  | ty1::tys1p ->
+      let ty1str = (ty_to_string ty1) in
+      let ty2str = (ty_to_string ty2) in
+      let freshname = "fresh_"^ty2str^"_in_"^ty1str in
+      if (H.mem defs_table freshname || List.mem freshname newDef) then 
+	makeFreshGeneric' tys1p ty2 newDef
+      else 
+      let freshstr = "Define "^freshname^" : "^ty2str^" -> "^ty1str^" -> prop by \n nabla n, "^freshname^" n X. \n" in
+      let (restOf, newDef) = makeFreshGeneric' tys1p ty2 (freshname::newDef) in
+      (freshstr^restOf, newDef)
+  | [] -> ( "" , newDef)
+  end
+
+
+let rec makeFreshGeneric tys1 tys2 newDef =
+  begin match tys2 with
+  | ty2::tys2p -> 
+      let (curFresh, newDef) = makeFreshGeneric' tys1 ty2 newDef in
+      let (restOf, newDef) = makeFreshGeneric tys1 tys2p newDef in
+       (curFresh^restOf,newDef)
+  | [] -> ("", newDef)
+
+
+  end
+
+(* Make one prune lemma for each nabla bound variable *)
+(* nabla bound variables, id paired with their type *)
+let rec makePruneGeneric tys newLem =
+  begin match tys with
+  | ty::tysp -> 
+      let tystr = ty_to_string ty in
+      let prnname = "member_prune_"^tystr in
+      if List.mem_assoc prnname !lemmas || List.mem prnname newLem then 
+        makePruneGeneric tysp newLem
+      else
+	let prnstr = "Theorem "^prnname^" : forall G E, nabla (n:"^tystr^"),member (E n) G -> (exists E', E = x\\E').\n" in
+	let prnprf = "induction on 1. intros. case H1. search. apply IH to H2. search.\n" in
+	let (restOf, newLem) =  makePruneGeneric tysp (prnname::newLem) in 
+	(prnstr^prnprf^restOf , newLem)
+  |  [] ->  ( "", newLem)
+end
+
+(* I could remove the repeated types in tys1 and tys2 *)
+let rec makeBlockGeneric tys1 tys2 =
+  let (freshDefs, _ ) = makeFreshGeneric tys1 tys2 [] in
+  let (pruneDefs, _ ) = makePruneGeneric tys2 [] in
+   freshDefs^pruneDefs
+
 let add_block name block =
  blocks := (name, block)::!blocks
 
@@ -270,21 +354,62 @@ let get_schema name =
 
 let make_inv_stmt id ids = 
   	    let mts = List.map get_block ids in
-	    let invstrl = List.map (fun ((id1,ty1),(id2,ty2),utm) -> " (exists "^id1^" "^(String. capitalize id2)^", E = "^(uterm_to_string (rename_id_in_uterm id2 (String.capitalize id2)  utm))^" /\\ fresh_"^(ty_to_string ty2)^"_in_"^(ty_to_string ty1)^" "^(String. capitalize id2)^" "^id1^") ") mts in
+	    let invstrl = List.map (fun ((id1,ty1),idtys2,utm) -> 
+	       let (id2,ty2) = List.hd idtys2 in " (exists "^id1^" "^(String. capitalize id2)^", E = "^(uterm_to_string (rename_ids_in_uterm [(id2,(String.capitalize id2))]  utm))^" /\\ fresh_"^(ty_to_string ty2)^"_in_"^(ty_to_string ty1)^" "^(String. capitalize id2)^" "^id1^") ") mts in
 	    "forall E G, \n "^id^" G -> member E G ->"^(String.concat "\\/ \n" invstrl)^". \n"
 
 let make_inv_prf ids =
   "IHinv: induction on 1. intros H1inv H2inv. H3inv : case H1inv. case H2inv."^(str_repeat (List.length ids) "H4inv : case H2inv. search. apply IHinv to H3inv H4inv. search. \n")
 
-(* schemaname, canonical block *)
-let make_uni_stmt id ((id1,ty1),(id2,ty2),utm) =
-  "forall G "^(String.capitalize id2)^" A B, "^id^" G -> member ("^(uterm_to_string (rename_id_in_uterm id2 (String.capitalize id2) (rename_id_in_uterm id1 "A"  utm)))^") G -> member ("^(uterm_to_string (rename_id_in_uterm id2 (String.capitalize id2) (rename_id_in_uterm id1 "B"  utm)))^") G -> A = B." 
 
+let rec safe_uni_ground eql bls n = 
+  begin match eql with
+  | 1::eqlr -> if (List.fold_left 
+		     (fun a ((id1,ty1),idtys2,ut) -> 
+		       begin match a with
+		       | true -> 
+			   let cid = term_to_string (get_nth_id n (uterm_to_term [] ut)) in
+			   let (id2,_) = List.split idtys2 in
+			   List.mem cid id2
+		       | false -> false
+		       end) 
+		     true bls)
+  then n else safe_uni_ground eqlr bls (n+1)
+  | _::eqlr -> safe_uni_ground eqlr bls (n+1)
+  | [] -> failwith "Can't ground unique theorem for given assumption"
+  end
+
+
+
+
+(* schemaname, nabla ground, canonical block *)
+let make_uni_stmt id n ((id1,ty1),idtys2,utm) =
+  let ac = ref 0 in
+  let bc = ref 0 in
+  let idground = term_to_string (get_nth_id n (uterm_to_term [] utm)) in
+  let idGround = String.capitalize idground in
+  let idtys2' = List.remove_assoc idground idtys2 in
+  let (id2s,_) = List.split idtys2' in
+  let idaA = (id1,"A0")::(List.map (fun id -> ac := !ac+1; (id, "A"^(string_of_int !ac))) id2s) in
+  let idaB = (id1,"B0")::(List.map (fun id -> bc := !bc+1; (id, "B"^(string_of_int !bc))) id2s) in
+  let tmAstr = uterm_to_string (rename_ids_in_uterm ((idground,idGround)::idaA) utm) in
+  let tmBstr = uterm_to_string (rename_ids_in_uterm ( (idground,idGround)::idaB) utm) in
+  let (_,idsA) = List.split idaA in
+  let (_,idsB) = List.split idaB in
+  let eqstrl = List.map (fun (a,b) -> a^" = "^b) (List.combine idsA idsB) in
+  "forall G "^idGround^" "^(String.concat " " (List.append idsA idsB))^" , "^id^" G -> member ( "^tmAstr^") G -> member ("^tmBstr^") G -> "^(String.concat " /\\ " eqstrl)^" ." 
+
+(*
+  let (id2,ty2) = List.hd idtys2 in
+  "forall G "^(String.capitalize id2)^" A B, "^id^" G -> member ("^(uterm_to_string (rename_ids_in_uterm [(id2,String.capitalize id2);(id1,"A")]  utm))^") G -> member ("^(uterm_to_string (rename_ids_in_uterm [(id2,String.capitalize id2);(id1,"B")]  utm))^") G -> A = B." 
+*)
 
 (* schemaname, block names, blocks, block_include *)
  let make_uni_prf id mts ads = 
   let h1 =   "IHuni: induction on 1. intros H1uni H2uni H3uni. H4uni: case H1uni. case H2uni.\n" in
-  let h2l = List.map (fun (((id1,ty1),(id2,ty2),utm),n) -> match n with
+  let h2l = List.map (fun (((id1,ty1),idtys2,utm),n) -> 
+    let (id2,ty2) = List.hd idtys2 in 
+    match n with
   | 1 -> "H5uni: case H2uni. H6uni: case H3uni. search. apply member_prune_"^(ty_to_string ty2)^" to H6uni.\n"^"H6uni: case H3uni. apply member_prune_"^(ty_to_string ty2)^" to H5uni. apply IHuni to H4uni H5uni H6uni. search."
   | _ -> "H5uni:case H2uni. H6uni: case H3uni. apply IHuni to H4uni H5uni H6uni. search."
 ) (List.combine mts ads) in
