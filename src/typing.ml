@@ -380,7 +380,12 @@ let get_nth_id n tm =
   | _ -> failwith "Unexpected tm in get_nth_id"
   end
 
-
+(* remove repeated strings from list, keeping only the last occ. *)
+let rec rem_rep idl = begin match idl with
+|  id::idl' -> 
+    if (List.mem id idl') then idl' else id::(rem_rep idl')
+|  [] -> []
+end
 
 let get_head_id tm =
   term_to_string (get_nth_id 0 tm)

@@ -31,7 +31,7 @@ type lemmas = (id * metaterm) list
 let lemmas : lemmas ref = ref []
 
 (* SCHEMA *)
-type blocks = (id * ((id * ty) * ((id * ty) list) * uterm)) list
+type blocks = (id * ((id * ty) list * (id * ty) list * uterm)) list
 let blocks : blocks ref = ref []
 
 type schemas = (id * (id list)) list
@@ -254,12 +254,56 @@ let get_lemma name =
   List.assoc name !lemmas
 
 (* SCHEMA *)
+
+
+
+(* Cases: hd1 <~> hd2 <~ hd3 & args1 args2 are pairwise uni to args3 *)
+(* returns true if tm could the described pattern ptm, false otherwise *)
+let rec instOfPat tm ptm ctable =
+   begin match observe tm, observe ptm  with
+   | Var _, Var _ -> 
+       begin match (List.mem_assoc (term_to_string tm) ctable, List.mem_assoc (term_to_string ptm) ctable) with
+      | true, true -> if (term_to_string tm) = (term_to_string ptm) then true else false
+      | false, false -> true
+      | _ , _ -> false
+      end
+   | App(th,tt), App(pth,ptt) ->  begin try (instOfPat th pth ctable) && (List.fold_left (fun cur (tm',ptm') -> cur && (instOfPat tm' ptm' ctable)) true (List.combine tt ptt))
+                                  with
+                                   | e -> false
+                                  end
+   | App(th,tt), Var v ->
+            if List.mem_assoc Term.(v.name) ctable then false else true
+   | Var v, App(pth,ptt) ->
+            if List.mem_assoc Term.(v.name) ctable then false else true
+   | Lam (idtys,tm'), _ -> failwith "Lambda case of tm unimplemented in instOfPats"
+   | _ , _ -> failwith "unexpected in instOfPats (2)"
+   end
+
+(* returns a bitmap of booleans indicating, for each pattern in bls, if t1 and t2 could both match it *)
+let rec instOfPats t1 t2 bls sign =
+let (_,ctable) = sign in
+begin match bls with
+| (idtys1,idtys2,utm)::bls' -> ((instOfPat t1 (uterm_to_term [] utm) ctable) && (instOfPat t2 (uterm_to_term [] utm) ctable))::(instOfPats t1 t2 bls' sign)
+| [] -> []
+end
+
+(*
+  let pstr = (get_head_id (get_nth_id 1 t1)) in
+  List.map (fun (idtys1,idtys2,utm) ->  
+    begin match observe (uterm_to_term [] utm) with 
+    |  App(th,tt) -> 
+	if  (pstr = (term_to_string th)) then 1 else 0
+    |	 _ ->  0
+    end) bls
+
+*)
+
 let rec pairwiseEqual' t1l t2l =
   begin match t1l with
   |  t1::t1r ->
       begin match t2l with
       |	t2::t2r ->
-	  printf "Pairwise equal: %s =? %s \n %!" (term_to_string t1) (term_to_string t2);
+	  (* printf "Pairwise equal: %s =? %s \n %!" (term_to_string t1) (term_to_string t2);*)
 	  let eql = pairwiseEqual' t1r t2r in
 	  if (term_to_string t2) = (term_to_string t1) then
 	    1::eql
@@ -287,55 +331,70 @@ end
 
 (* Make one fresh definition for each pairs of exists, nabla bound variable *)
 (*exists bound variables, nabla bound variables, id paired with their type *)
-(* todo: add current list of added makeFreshGen so that we don't redef them *)
-let rec makeFreshGeneric' tys1 ty2 newDef =
+let rec makeFreshGeneric' tys1 ty2  =
   begin match tys1 with
   | ty1::tys1p ->
       let ty1str = (ty_to_string ty1) in
       let ty2str = (ty_to_string ty2) in
       let freshname = "fresh_"^ty2str^"_in_"^ty1str in
-      if (H.mem defs_table freshname || List.mem freshname newDef) then 
-	makeFreshGeneric' tys1p ty2 newDef
+      if H.mem defs_table freshname then 
+	makeFreshGeneric' tys1p ty2
       else 
       let freshstr = "Define "^freshname^" : "^ty2str^" -> "^ty1str^" -> prop by \n nabla n, "^freshname^" n X. \n" in
-      let (restOf, newDef) = makeFreshGeneric' tys1p ty2 (freshname::newDef) in
-      (freshstr^restOf, newDef)
-  | [] -> ( "" , newDef)
+      let restOf = makeFreshGeneric' tys1p ty2  in
+      freshstr^restOf
+  | [] -> ""
   end
 
 
-let rec makeFreshGeneric tys1 tys2 newDef =
+(* assumes there is no repetition in tys1,tys2 *)
+let rec makeFreshGeneric tys1 tys2 =
   begin match tys2 with
   | ty2::tys2p -> 
-      let (curFresh, newDef) = makeFreshGeneric' tys1 ty2 newDef in
-      let (restOf, newDef) = makeFreshGeneric tys1 tys2p newDef in
-       (curFresh^restOf,newDef)
-  | [] -> ("", newDef)
+      let curFresh = makeFreshGeneric' tys1 ty2 in
+      let restOf = makeFreshGeneric tys1 tys2p in
+       curFresh^restOf
+  | [] -> ""
 
 
   end
+(* assume there is no repetition in tys *)
+let rec makeNameGeneric tys = 
+begin match tys with
+| ty::tys' ->
+    let tystr = ty_to_string ty in
+    let namename = tystr^"_name" in
+    let curName = "Define "^namename^" : "^tystr^" -> prop by \n nabla x, "^namename^" x.\n" in
+    let restOf = makeNameGeneric tys' in
+    curName^restOf
+| [] -> ""
+end
+
 
 (* Make one prune lemma for each nabla bound variable *)
 (* nabla bound variables, id paired with their type *)
-let rec makePruneGeneric tys newLem =
+(* assume there is no repetition in tys *)
+let rec makePruneGeneric tys =
   begin match tys with
   | ty::tysp -> 
       let tystr = ty_to_string ty in
       let prnname = "member_prune_"^tystr in
-      if List.mem_assoc prnname !lemmas || List.mem prnname newLem then 
-        makePruneGeneric tysp newLem
+      if List.mem_assoc prnname !lemmas  then 
+        makePruneGeneric tysp 
       else
 	let prnstr = "Theorem "^prnname^" : forall G E, nabla (n:"^tystr^"),member (E n) G -> (exists E', E = x\\E').\n" in
 	let prnprf = "induction on 1. intros. case H1. search. apply IH to H2. search.\n" in
-	let (restOf, newLem) =  makePruneGeneric tysp (prnname::newLem) in 
-	(prnstr^prnprf^restOf , newLem)
-  |  [] ->  ( "", newLem)
+	let restOf =  makePruneGeneric tysp in 
+	prnstr^prnprf^restOf
+  |  [] ->  ""
 end
 
 (* I could remove the repeated types in tys1 and tys2 *)
 let rec makeBlockGeneric tys1 tys2 =
-  let (freshDefs, _ ) = makeFreshGeneric tys1 tys2 [] in
-  let (pruneDefs, _ ) = makePruneGeneric tys2 [] in
+  let tys1 = rem_rep tys1 in
+  let tys2 = rem_rep tys2 in
+  let freshDefs = if tys1 = [] then makeNameGeneric tys2 else makeFreshGeneric tys1 tys2 in
+  let pruneDefs = makePruneGeneric tys2 in
    freshDefs^pruneDefs
 
 let add_block name block =
@@ -352,10 +411,36 @@ let get_schema name =
  try List.assoc name !schemas 
  with Not_found -> failwith (sprintf "Block %s undefined." name)
 
+
+let rec one_fresh (id1,ty1) idtys2 = 
+  begin match idtys2 with
+ | (id2,ty2)::idtys2' ->
+     let fresh = " fresh_"^(ty_to_string ty2)^"_in_"^(ty_to_string ty1)^" "^id2^" "^id1^" " in 
+     let rst = one_fresh (id1,ty1) idtys2' in
+     fresh::rst
+ | [] -> []
+  end
+
+let rec all_fresh idtys1 idtys2 = 
+  begin match idtys1 with
+  | idty1::idtys1' -> 
+      List.append (one_fresh idty1 idtys2) (all_fresh idtys1' idtys2)
+  | [] -> []
+end
+
+let rec all_name idtys =
+begin match idtys with
+| (id,ty)::idtys' -> ((ty_to_string ty)^"_var"^" "^id)::(all_name idtys')
+| [] -> []
+end
+
 let make_inv_stmt id ids = 
   	    let mts = List.map get_block ids in
-	    let invstrl = List.map (fun ((id1,ty1),idtys2,utm) -> 
-	       let (id2,ty2) = List.hd idtys2 in " (exists "^id1^" "^(String. capitalize id2)^", E = "^(uterm_to_string (rename_ids_in_uterm [(id2,(String.capitalize id2))]  utm))^" /\\ fresh_"^(ty_to_string ty2)^"_in_"^(ty_to_string ty1)^" "^(String. capitalize id2)^" "^id1^") ") mts in
+	    let invstrl = List.map (fun (idtys1,idtys2,utm) -> 
+	      let (id1s,ty1s) = List.split idtys1 in
+	      let (id2s,ty2s) = List.split idtys2 in
+	      let freshl = all_fresh idtys1 idtys2 in
+	      if (List.append id1s id2s) = [] then "(E = "^(uterm_to_string utm)^")" else " (exists "^(String.concat " " id1s)^" "^(String.concat " " id2s)^", E = "^(uterm_to_string utm)^" /\\ "^(String.concat "/\\" freshl)^") ") mts in
 	    "forall E G, \n "^id^" G -> member E G ->"^(String.concat "\\/ \n" invstrl)^". \n"
 
 let make_inv_prf ids =
@@ -365,7 +450,7 @@ let make_inv_prf ids =
 let rec safe_uni_ground eql bls n = 
   begin match eql with
   | 1::eqlr -> if (List.fold_left 
-		     (fun a ((id1,ty1),idtys2,ut) -> 
+		     (fun a (idtys1,idtys2,ut) -> 
 		       begin match a with
 		       | true -> 
 			   let cid = term_to_string (get_nth_id n (uterm_to_term [] ut)) in
@@ -383,35 +468,32 @@ let rec safe_uni_ground eql bls n =
 
 
 (* schemaname, nabla ground, canonical block *)
-let make_uni_stmt id n ((id1,ty1),idtys2,utm) =
+let make_uni_stmt id n (idtys1,idtys2,utm) =
   let ac = ref 0 in
   let bc = ref 0 in
   let idground = term_to_string (get_nth_id n (uterm_to_term [] utm)) in
   let idGround = String.capitalize idground in
   let idtys2' = List.remove_assoc idground idtys2 in
   let (id2s,_) = List.split idtys2' in
-  let idaA = (id1,"A0")::(List.map (fun id -> ac := !ac+1; (id, "A"^(string_of_int !ac))) id2s) in
-  let idaB = (id1,"B0")::(List.map (fun id -> bc := !bc+1; (id, "B"^(string_of_int !bc))) id2s) in
+  let (id1s,_) = List.split idtys1 in
+  let idaA = List.map (fun id -> ac := !ac+1; (id, "A"^(string_of_int !ac))) (List.append id1s id2s) in
+  let idaB = List.map (fun id -> bc := !bc+1; (id, "B"^(string_of_int !bc))) (List.append id1s id2s) in
   let tmAstr = uterm_to_string (rename_ids_in_uterm ((idground,idGround)::idaA) utm) in
-  let tmBstr = uterm_to_string (rename_ids_in_uterm ( (idground,idGround)::idaB) utm) in
+  let tmBstr = uterm_to_string (rename_ids_in_uterm ((idground,idGround)::idaB) utm) in
   let (_,idsA) = List.split idaA in
   let (_,idsB) = List.split idaB in
   let eqstrl = List.map (fun (a,b) -> a^" = "^b) (List.combine idsA idsB) in
   "forall G "^idGround^" "^(String.concat " " (List.append idsA idsB))^" , "^id^" G -> member ( "^tmAstr^") G -> member ("^tmBstr^") G -> "^(String.concat " /\\ " eqstrl)^" ." 
 
-(*
-  let (id2,ty2) = List.hd idtys2 in
-  "forall G "^(String.capitalize id2)^" A B, "^id^" G -> member ("^(uterm_to_string (rename_ids_in_uterm [(id2,String.capitalize id2);(id1,"A")]  utm))^") G -> member ("^(uterm_to_string (rename_ids_in_uterm [(id2,String.capitalize id2);(id1,"B")]  utm))^") G -> A = B." 
-*)
 
 (* schemaname, block names, blocks, block_include *)
  let make_uni_prf id mts ads = 
   let h1 =   "IHuni: induction on 1. intros H1uni H2uni H3uni. H4uni: case H1uni. case H2uni.\n" in
-  let h2l = List.map (fun (((id1,ty1),idtys2,utm),n) -> 
+  let h2l = List.map (fun ((idtys1,idtys2,utm),b) -> 
     let (id2,ty2) = List.hd idtys2 in 
-    match n with
-  | 1 -> "H5uni: case H2uni. H6uni: case H3uni. search. apply member_prune_"^(ty_to_string ty2)^" to H6uni.\n"^"H6uni: case H3uni. apply member_prune_"^(ty_to_string ty2)^" to H5uni. apply IHuni to H4uni H5uni H6uni. search."
-  | _ -> "H5uni:case H2uni. H6uni: case H3uni. apply IHuni to H4uni H5uni H6uni. search."
+   if b then
+  "H5uni: case H2uni. H6uni: case H3uni. search. apply member_prune_"^(ty_to_string ty2)^" to H6uni.\n"^"H6uni: case H3uni. apply member_prune_"^(ty_to_string ty2)^" to H5uni. apply IHuni to H4uni H5uni H6uni. search."
+  else  "H5uni:case H2uni. H6uni: case H3uni. apply IHuni to H4uni H5uni H6uni. search."
 ) (List.combine mts ads) in
   h1^(String.concat "" h2l)
 

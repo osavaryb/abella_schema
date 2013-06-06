@@ -430,15 +430,18 @@ let rec process_proof name =
    let invThmStr = make_inv_stmt schName bids in
    let invPrfStr = make_inv_prf  bids in
    let aStr = hypName^": assert "^invThmStr^invPrfStr in
+   let holdout = ref !out in
    let holdbuf = ref !lexbuf in
    fprintf !out "/* %s */ \n" aStr;
    lexbuf := Lexing.from_string aStr;
+   out := open_out "/dev/null";
    begin try 
    process_proof "";
+   out := !holdout;
    lexbuf := !holdbuf;
     hypName
    with AbortProof ->
-   lexbuf := !holdbuf; failwith "error in inv" end   end
+     out := !holdout; lexbuf := !holdbuf; failwith "error in inv" end   end
    | _ -> failwith "unexpected in inversion" 
    end
    |  "unique" -> 
@@ -446,38 +449,45 @@ let rec process_proof name =
 		    | Pred (t,r) ->
 			let schName = get_head_id t in
 			begin match (get_hyp (List.hd (List.tl args)), get_hyp (List.nth args 2)) with
-			| Pred (t1,_), Pred(t2,_) ->
+			| Pred (t1 ,_), Pred(t2 ,_) -> (* t1,t2 are of the form member E G *)
 			    let pstr = (get_head_id (get_nth_id 1 t1)) in
-			    let hypName = "Huni"^pstr^schName in
 (* for each block in ids, add 1 to the list ads if the predicate get introduced, 0 otherwise.*)
 			    let bids = get_schema schName in
 			    let mts = List.map get_block bids in
-			    let ads = List.map (fun ((id1,ty1),idtys2,utm) ->  
-			      begin match observe (uterm_to_term [] utm) with 
-			      |  App(th,tt) -> 
-				   if  (pstr = (term_to_string th)) then 1 else 0
-			      |	 _ ->  0
-			      end) mts in
 			    (* get a canonical block, first with 1, and generate the statement from it *)
-			    begin match (observe (hnorm t1), observe (hnorm t2)) with
-			    | App (t1h , t1l), App ( t2h , t2l) ->
-				let eql = pairwiseEqual (observe (hnorm (List.hd t1l))) (observe (hnorm (List.hd t2l)))  in
-				let n = safe_uni_ground eql mts 1 in
-			    fprintf !out "\n || %s || safe at %d \n" (String.concat " " (List.map string_of_int eql)) n;
-			    let ((id1b,ty1b),idtys2b,utmb) as cblock = ( List.assoc 1 (List.combine ads mts)) in
-			    let uniThmStr = make_uni_stmt schName n cblock in
-			    let uniPrfStr = make_uni_prf schName mts ads in
-			    let aStr = hypName^" : assert "^uniThmStr^uniPrfStr in
-			    let holdbuf = ref !lexbuf in
-			    fprintf !out "/* %s */ \n" aStr;
-			    lexbuf := Lexing.from_string aStr;
-			    begin try 
-			      process_proof "";
-			      lexbuf := !holdbuf;
+			    let t1l,t2l = 
+			      begin match observe t1, observe t2 with
+			      | App (t1h , t1l), App ( t2h , t2l) ->  if ((term_to_string t1h) = "member") &&((term_to_string t2h) = "member") then (t1l,t2l) else failwith "Unexpected in inversion: hypothesis 1 and 2 should be of form 'member A G'"
+			      | _ -> failwith  "Unexpected in inversion: hypothesis 1 and 2 should be of form 'member A G'"
+			      end in
+			    let ads = instOfPats (List.hd t1l) (List.hd t2l) mts !sign in
+			    let eql = pairwiseEqual (observe (hnorm (List.hd t1l))) (observe (hnorm (List.hd t2l)))  in
+			    let n = safe_uni_ground eql mts 1 in
+			    let hypName = "Huni"^pstr^schName^(string_of_int n) in
+			    fprintf !out "\n  %s and %s can be added by nth block || %s ||  \n" (term_to_string (List.hd t1l)) (term_to_string (List.hd t2l)) (String.concat " " (List.map string_of_bool ads));
+			    fprintf !out "\n || %s || safe at %d \n" (String.concat " " (List.map string_of_int eql)) n; 
+			    begin try
+			      let _ = get_hyp hypName in
 			      hypName
-			    with AbortProof ->
-			      lexbuf := !holdbuf; failwith "error in uniq" end  
-			    |  _ -> failwith "unexpected in inversion" end
+			    with _ ->
+				let (idtys1b,idtys2b,utmb) as cblock =  
+				  begin try List.assoc true (List.combine ads mts) 
+				  with Not_found -> failwith ("No block matches hypothesis of the given form in "^schName) end in
+			      let uniThmStr = make_uni_stmt schName n cblock in
+			      let uniPrfStr = make_uni_prf schName mts ads in
+			      let aStr = hypName^" : assert "^uniThmStr^uniPrfStr in
+(*			      let holdout = ref !out in *)
+			      let holdbuf = ref !lexbuf in
+			      fprintf !out "/* %s */ \n" aStr;
+(*			      out := open_out "/dev/null"; *)
+			      lexbuf := Lexing.from_string aStr; 
+			      begin try 
+				process_proof "";
+(*				out := !holdout; *)
+				lexbuf := !holdbuf;
+				hypName
+			      with AbortProof ->
+			      (*  out := !holdout; *) lexbuf := !holdbuf; failwith "error in uniq" end  end
 			| _ -> failwith "unexpected in inversion" 
 			end
 		    | _ -> failwith "unexpected in inversion" 
@@ -599,54 +609,66 @@ let rec process () =
                check_noredef [id];
 
 	    let (ids1,_) = List.split idtys1 in
-	    let id1 = List.hd ids1 in
 	    let (ids2,_) = List.split idtys2 in
-	        begin match  observe (uterm_to_term [] ut) with 
-	        |  App(th,tt) ->
-		    let id3 = (term_to_string th) in
-		    let pty = (lookup_const !sign id3) in
-		    begin match pty with
-		    | Ty(tys, bty) -> 
-			let tys1 = List.map (fun id1 -> get_ty_from_tml id1 (List.map observe tt) tys sign) ids1 in
-			let tys2 = List.map (fun id2 -> get_ty_from_tml id2 (List.map observe tt) tys sign) ids2 in
-			let proofStr = makeBlockGeneric tys1 tys2 in
-			let ty1 =  List.hd tys1 in
-			add_block id ((id1,ty1),List.combine ids2 tys2,ut);
-			if (proofStr <> "") then fprintf !out "<< \n %s >> \n" proofStr; 
-			if (proofStr <> "") then
-			  let holdbuf = ref !lexbuf in 
-			  lexbuf := (Lexing.from_string proofStr);
-			  begin try 
-			  process ();
-			  lexbuf := !holdbuf; 
-			  with e ->
-			    lexbuf := !holdbuf; 
-			    raise e;
-			  end (* end try process *)
-			    else
-			  ()
-		    end  (* match pty *)
-		|   _ -> failwith "General block not implemented yet(3)."
-		end (* match observe *)
+	    let (th,tt) = 
+	      begin match observe (uterm_to_term [] ut) with
+	      | App(th,tt) -> (th,tt)	     
+	      | Var v -> (Term.(var v.tag v.name v.ts v.ty), []) 
+	      | _ -> failwith "General block not implemented yet(1)."
+	      end in
+	    let id3 = (term_to_string th) in
+	    let pty = (lookup_const !sign id3) in
+	    begin match pty with
+	    | Ty(tys, bty) -> 
+		let tys1 = List.map (fun id1 -> get_ty_from_tml id1 (List.map observe tt) tys sign) ids1 in
+		let tys2 = List.map (fun id2 -> get_ty_from_tml id2 (List.map observe tt) tys sign) ids2 in
+		let proofStr = makeBlockGeneric tys1 tys2 in
+		add_block id (List.combine ids1 tys1,List.combine ids2 tys2,ut);
+		if (proofStr <> "") then fprintf !out "<< \n %s >> \n" proofStr; 
+		if (proofStr <> "") then
+		  let holdbuf = ref !lexbuf in 
+		  let holdout = ref !out in
+		  out := open_out "/dev/null";
+		  lexbuf := (Lexing.from_string proofStr);
+		  begin try 
+		    process ();
+		    out := !holdout;
+		    lexbuf := !holdbuf; 
+		  with e ->
+		    out := !holdout;
+		    lexbuf := !holdbuf; 
+		    raise e;
+		  end (* end try process *)
+		else
+		  ()
+	    end  (* match pty *)
+
 	| Schema (id,ids) -> (* STUB *)
             check_noredef [id];
 	    add_schema id ids;
 	    let schTy = "olist -> prop" in
 	    let mts = List.map get_block ids in
 	    (* context definition *)
-	    let clstrl = List.map (fun ((id1,ty1),idtys2,utm) -> 
+	    let clstrl = List.map (fun (idtys1,idtys2,utm) -> 
 	      let (ids2, _ ) = List.split idtys2 in
+	      if ids2 = [] then 
+		id^" ("^(uterm_to_string utm)^" :: G) := "^id^" G"
+              else 
 	      "nabla "^(String.concat " " ids2)^", "^id^" ("^(uterm_to_string utm)^" :: G) := "^id^" G") mts in
 	    let cdef = begin match List.length ids with
 	    |  0 -> "Define "^id^":"^schTy^" by \n"^id^" nil."
 	    |  _ -> "Define "^id^":"^schTy^" by \n"^id^" nil;"^(String.concat ";\n" clstrl)^"." end in
+	    fprintf !out "%s \n" cdef; flush stdout;
 	    let holdbuf = ref !lexbuf in
+	    let holdout = ref !out in
+	    out := open_out "/dev/null";
 	    lexbuf := Lexing.from_string cdef;
 	    begin try 
 	      process ();
+	      out := !holdout;
 	      lexbuf := !holdbuf;
 	    with AbortProof ->
-	      lexbuf := !holdbuf; () end 
+	         out := !holdout; lexbuf := !holdbuf; () end 
         | CoDefine(idtys, udefs) ->
             let ids = List.map fst idtys in
               check_noredef ids;

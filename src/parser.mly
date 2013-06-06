@@ -250,8 +250,17 @@ def:
   | metaterm                             { ($1, UTrue) }
   | metaterm DEFEQ metaterm              { ($1, $3) }
 
+existsopt:
+  | EXISTS binding_list COMMA            { $2 }
+  |                                      { [] }
+
+nablaopt:
+  | NABLA binding_list COMMA            { $2 }
+  |                                      { [] }
+
 blockdef:
- | EXISTS binding_list COMMA NABLA binding_list COMMA term   {($2,$5,$7)}
+  | existsopt nablaopt term               {($1,$2,$3)}
+/* | EXISTS binding_list COMMA NABLA binding_list COMMA term   {($2,$5,$7)} *?
 
 /* {UBinding(Metaterm.Exists,[($2,Term.fresh_tyvar ())],UBinding(Metaterm.Nabla,[($5,Term.fresh_tyvar ())],UPred($7,Metaterm.Irrelevant)))}  */
 
