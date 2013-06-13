@@ -259,7 +259,7 @@ let get_lemma name =
 
 (* Cases: hd1 <~> hd2 <~ hd3 & args1 args2 are pairwise uni to args3 *)
 (* returns true if tm could the described pattern ptm, false otherwise *)
-let rec instOfPat tm ptm ctable =
+let rec instOfPat tm eids ptm ctable =
    begin match observe tm, observe ptm  with
    | Var _, Var _ -> 
        begin match (List.mem_assoc (term_to_string tm) ctable, List.mem_assoc (term_to_string ptm) ctable) with
@@ -267,11 +267,13 @@ let rec instOfPat tm ptm ctable =
       | false, false -> true
       | _ , _ -> false
       end
-   | App(th,tt), App(pth,ptt) ->  begin try (instOfPat th pth ctable) && (List.fold_left (fun cur (tm',ptm') -> cur && (instOfPat tm' ptm' ctable)) true (List.combine tt ptt))
+   | App(th,tt), App(pth,ptt) ->  begin try (instOfPat th eids pth ctable) && (List.fold_left (fun cur (tm',ptm') -> cur && (instOfPat tm' eids ptm' ctable)) true (List.combine tt ptt))
                                   with
                                    | e -> false
                                   end
-   | App(th,tt), Var v -> true
+   | App(th,tt), Var v -> 
+   (* check if v is exists bound, then true, else [nabla bound] false *)
+      if (List.mem_assoc Term.(v.name) eids) then true else false
 (*            if List.mem_assoc Term.(v.name) ctable then false else true *)
    | Var v, App(pth,ptt) -> false
  (*            if List.mem_assoc Term.(v.name) ctable then false else true *)
@@ -283,7 +285,7 @@ let rec instOfPat tm ptm ctable =
 let rec instOfPats t bls sign =
 let (_,ctable) = sign in
 begin match bls with
-| (idtys1,idtys2,utm)::bls' -> (instOfPat t (uterm_to_term [] utm) ctable)::(instOfPats t bls' sign)
+| (idtys1,idtys2,utm)::bls' -> (instOfPat t idtys1 (uterm_to_term [] utm) ctable)::(instOfPats t bls' sign)
 | [] -> []
 end
 
