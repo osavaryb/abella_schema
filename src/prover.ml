@@ -271,19 +271,19 @@ let rec instOfPat tm ptm ctable =
                                   with
                                    | e -> false
                                   end
-   | App(th,tt), Var v ->
-            if List.mem_assoc Term.(v.name) ctable then false else true
-   | Var v, App(pth,ptt) ->
-            if List.mem_assoc Term.(v.name) ctable then false else true
+   | App(th,tt), Var v -> true
+(*            if List.mem_assoc Term.(v.name) ctable then false else true *)
+   | Var v, App(pth,ptt) -> false
+ (*            if List.mem_assoc Term.(v.name) ctable then false else true *)
    | Lam (idtys,tm'), _ -> failwith "Lambda case of tm unimplemented in instOfPats"
    | _ , _ -> failwith "unexpected in instOfPats (2)"
    end
 
 (* returns a bitmap of booleans indicating, for each pattern in bls, if t1 and t2 could both match it *)
-let rec instOfPats t1 t2 bls sign =
+let rec instOfPats t bls sign =
 let (_,ctable) = sign in
 begin match bls with
-| (idtys1,idtys2,utm)::bls' -> ((instOfPat t1 (uterm_to_term [] utm) ctable) && (instOfPat t2 (uterm_to_term [] utm) ctable))::(instOfPats t1 t2 bls' sign)
+| (idtys1,idtys2,utm)::bls' -> (instOfPat t (uterm_to_term [] utm) ctable)::(instOfPats t bls' sign)
 | [] -> []
 end
 
@@ -297,6 +297,101 @@ end
     end) bls
 
 *)
+
+let rec seqIdTerm id t nl = 
+   begin match observe t with
+   | App (th,tt) -> 
+     let (nl',th') = seqIdTerm id th nl in
+     let (nl'',tt') = (List.fold_right ( fun t (nl,tl) -> 
+                                     let (nl',t') = seqIdTerm id t nl in
+                                        (nl', t'::tl)) tt (nl',[])) in
+    (nl'', app th' tt')
+   | Var v -> 
+ begin if Term.(v.tag = Nominal) then
+        (nl,Term.(var Constant "" max_int (Ty([],"err"))))
+   else
+     let i = (List.hd nl)+1 in
+     let vn = id^(string_of_int i) in
+     (i::nl, var v.tag vn v.ts v.ty) end
+   | _ -> failwith (sprintf "unexpected %s in seqIdTerm" (term_to_string t))
+   end
+
+
+
+let makeDummyVars nl = 
+     let i = (List.hd nl)+1 in
+     let v1n = "A"^(string_of_int i) in
+     let v2n = "B"^(string_of_int i) in
+      (i::nl, Term.(var Constant v1n max_int (Ty([],"err"))), Term.(var Constant v2n max_int (Ty([],"err"))))
+
+(* make two terms with new variables Ai...Ai+n,Bi...Bi+1 leaving constants and "X" untouched *)
+let rec uniteTerms t1 t2 nl = 
+   let (_,ctable) = !sign in
+   begin match observe t1,observe t2 with
+   | App (th1,tt1),App(th2,tt2) ->  
+   begin if List.mem_assoc (term_to_string th1) ctable || List.mem_assoc (term_to_string th2) ctable then 
+   let (nl,th1',th2') = uniteTerms th1 th2 nl in
+   let (nl,tt1',tt2') = (List.fold_right (fun (t1,t2) (nl, t1l,t2l) ->  
+                             let (nl',t1',t2') =  uniteTerms t1 t2 nl in
+                                 (nl', t1'::t1l,t2'::t2l))
+            (List.combine tt1 tt2) (nl,[],[])) in
+   (nl, (app  th1' tt1'), (app th2' tt2'))
+   else 
+    makeDummyVars nl
+   end 
+   | Var v1 ,App(th2,tt2) -> 
+   begin if List.mem_assoc (term_to_string th2) ctable then
+   failwith (sprintf "Can't unify %s with eigenvariable %s in uniteTerms" (term_to_string t2) (Term.(v1.name))) 
+(*    let (nl1, t1) = seqIdTerm "A" t2 nl in
+   let (nl2, t2) = seqIdTerm "B" t2 nl in 
+   (nl2,t1,t2) *)
+   else 
+    makeDummyVars nl
+   end
+   | App (th1,tt1), Var v2 -> 
+   begin if List.mem_assoc (term_to_string th1) ctable then
+   failwith (sprintf "Can't unify %s with eigenvariable %s in uniteTerms" (Term.(v2.name)) (term_to_string t1) ) 
+(*   let (nl1, t1) = seqIdTerm "A" t1 nl in
+   let (nl2, t2) = seqIdTerm "B" t1 nl in 
+   (nl2,t1,t2)*)
+   else 
+    makeDummyVars nl
+   end
+   | Var v1, Var v2 ->
+   begin if (term_to_string t1 = "X") || List.mem_assoc Term.(v1.name) ctable then 
+     (nl,t1,t2)
+   else
+ begin if Term.(v1.tag = Nominal) then
+        (nl,Term.(var Constant "" max_int (Ty([],"err"))), Term.(var Constant "" max_int (Ty([],"err")))) else
+     let i = (List.hd nl)+1 in
+     let v1n = "A"^(string_of_int i) in
+     let v2n = "B"^(string_of_int i) in
+      (i::nl, Term.(var v1.tag v1n v1.ts v1.ty), Term.(var v2.tag v2n v2.ts v2.ty)) 
+end
+ end
+   | _ , _ ->  
+ failwith (sprintf "unexpected %s and %s in uniteTerms" (term_to_string t1) (term_to_string t2)) 
+(* safe fail    makeDummyVars nl *)
+       
+   end
+
+let rec replaceithby ng id tl =
+begin match tl,ng with
+   | t::tl',0 -> 
+      Term.(var Constant id max_int (Ty([],"err")))::tl'
+   | t::tl',_ -> t::(replaceithby (ng-1) id tl')
+   | [],_ -> []
+end
+   
+
+(* two terms to build the uniqueness theorem, position of the ground variable *)
+let makeUniqueTerms t1 t2 ng = 
+   begin match observe t1, observe t2 with
+   |App(th1,tt1),App(th2,tt2) -> 
+   let (nl , t1, t2) = uniteTerms (app th1 (replaceithby (ng-1) "X" tt1)) (app th1 (replaceithby (ng-1) "X" tt2)) [0] in
+   ((List.tl (List.rev nl)), t1,t2)
+   | _ , _ -> failwith (sprintf "unexpected %s and %s in makeUniqueTerms" (term_to_string t1) (term_to_string t2))
+   end
 
 let rec pairwiseEqual' t1l t2l =
   begin match t1l with
@@ -468,6 +563,13 @@ let rec safe_uni_ground eql bls n =
 
 
 (* schemaname, nabla ground, canonical block *)
+let make_uni_stmt' id tm1 tm2 nl =
+   let idsA = List.map (fun i -> "A"^(string_of_int i)) nl in
+   let idsB = List.map (fun i -> "B"^(string_of_int i)) nl in
+  let eqstrl = List.map (fun (a,b) -> a^" = "^b) (List.combine idsA idsB) in
+  "forall G X "^(String.concat " " (List.append idsA idsB))^" , "^id^" G -> member ( "^(term_to_string tm1)^") G -> member ("^(term_to_string tm2)^") G -> "^(String.concat " /\\ " eqstrl)^" ." 
+
+
 let make_uni_stmt id n (idtys1,idtys2,utm) =
   let ac = ref 0 in
   let bc = ref 0 in

@@ -460,20 +460,21 @@ let rec process_proof name =
 			      | App (t1h , t1l), App ( t2h , t2l) ->  if ((term_to_string t1h) = "member") &&((term_to_string t2h) = "member") then (t1l,t2l) else failwith "Unexpected in inversion: hypothesis 1 and 2 should be of form 'member A G'"
 			      | _ -> failwith  "Unexpected in inversion: hypothesis 1 and 2 should be of form 'member A G'"
 			      end in
-			    let ads = instOfPats (List.hd t1l) (List.hd t2l) mts !sign in
+
 			    let eql = pairwiseEqual (observe (hnorm (List.hd t1l))) (observe (hnorm (List.hd t2l)))  in
 			    let n = safe_uni_ground eql mts 1 in
 			    let hypName = "Huni"^pstr^schName^(string_of_int n) in
-			    fprintf !out "\n  %s and %s can be added by nth block || %s ||  \n" (term_to_string (List.hd t1l)) (term_to_string (List.hd t2l)) (String.concat " " (List.map string_of_bool ads));
 			    fprintf !out "\n || %s || safe at %d \n" (String.concat " " (List.map string_of_int eql)) n; 
 			    begin try
 			      let _ = get_hyp hypName in
 			      hypName
 			    with _ ->
-				let (idtys1b,idtys2b,utmb) as cblock =  
-				  begin try List.assoc true (List.combine ads mts) 
-				  with Not_found -> failwith ("No block matches hypothesis of the given form in "^schName) end in
-			      let uniThmStr = make_uni_stmt schName n cblock in
+			       let (nl,tu1,tu2) = makeUniqueTerms (List.hd t1l) (List.hd t2l) n in
+			       let ads = instOfPats tu1 mts !sign in
+			       printf "\nmakeUnique resulted in term %s and %s\n" (term_to_string tu1) (term_to_string tu2);
+			       begin if (List.fold_left (fun b b1 -> b || b1) false ads) then () else failwith ("No block matches hypothesis of the given form in "^schName) end;
+			      let uniThmStr = make_uni_stmt' schName tu1 tu2 nl in
+(*			      let uniThmStr = make_uni_stmt schName n cblock in *)
 			      let uniPrfStr = make_uni_prf schName mts ads in
 			      let aStr = hypName^" : assert "^uniThmStr^uniPrfStr in
 (*			      let holdout = ref !out in *)
