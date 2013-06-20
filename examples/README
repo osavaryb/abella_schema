@@ -1,6 +1,6 @@
 (20/06/2013) Meeting with Kaustuv:
 
-- We found out compounding schema as was planned in the previous notes is not directly possible, as we want blocks to be able to share variables, and at the moment quantifiers appears at the level of blocks. We plan on modifying the block/schema syntax as such:
+- We found out compounding schema as was planned in previous notes is not directly possible, as we want blocks to be able to share variables, and at the moment quantifiers appears at the level of blocks. We plan on modifying the block/schema syntax as such:
 ====================================================================
  Block c1(X1,...,Xp ; n1,...,nq) = ∃ X1 ... Xp ∇ n1 ... nq . [...]
  Block c2(X ; n,m) = ∃ X ∇ n m . [...]
