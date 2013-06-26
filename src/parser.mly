@@ -224,6 +224,27 @@ lpend:
   | END                                  { }
   |                                      { }
 
+
+sclause_list:
+  | existsopt nablaopt bid_tup                { [($1,$2,$3)] }
+  | existsopt nablaopt bid_tup SEMICOLON sclause_list  { ($1,$2,$3)::$5}
+
+bid_tup:
+  |  blockid                           {[$1]}
+  |  LPAREN bid_list RPAREN            {$2}
+
+bid_list:
+  | blockid                            {[$1]}
+  | blockid COMMA bid_list             {$1::$3}
+
+blockid:
+  | id                                  {([],[],$1)}
+  | id LPAREN optid_list SEMICOLON optid_list RPAREN {($3,$5,$1)}
+
+optid_list:
+  | id_list                             { $1 } 
+  |                                      { [] }
+
 id_list:
   | id                                   { [$1] }
   | id COMMA id_list                     { $1::$3}
@@ -251,16 +272,16 @@ def:
   | metaterm DEFEQ metaterm              { ($1, $3) }
 
 existsopt:
-  | EXISTS binding_list COMMA            { $2 }
+  | EXISTS utbinding_list COMMA            { $2 }
   |                                      { [] }
 
 nablaopt:
-  | NABLA binding_list COMMA            { $2 }
+  | NABLA utbinding_list COMMA            { $2 }
   |                                      { [] }
 
-blockdef:
+/*blockdef:
   | existsopt nablaopt term               {($1,$2,$3)}
-/* | EXISTS binding_list COMMA NABLA binding_list COMMA term   {($2,$5,$7)} *?
+| EXISTS binding_list COMMA NABLA binding_list COMMA term   {($2,$5,$7)} */
 
 /* {UBinding(Metaterm.Exists,[($2,Term.fresh_tyvar ())],UBinding(Metaterm.Nabla,[($5,Term.fresh_tyvar ())],UPred($7,Metaterm.Irrelevant)))}  */
 
@@ -360,6 +381,10 @@ binder:
   | EXISTS                               { Metaterm.Exists }
   | NABLA                                { Metaterm.Nabla }
 
+utbinding_list:
+  | id utbinding_list                    { $1::$2 }
+  | id                                 { [$1] }
+
 binding_list:
   | paid binding_list                    { $1::$2 }
   | paid                                 { [$1] }
@@ -411,8 +436,8 @@ pure_top_command:
   | CLOSE id_list DOT                    { Types.Close($2) }
   | SSPLIT id DOT                        { Types.SSplit($2, []) }
   | SSPLIT id AS id_list DOT             { Types.SSplit($2, $4) }
-  | BLOCK id DEFEQ blockdef DOT              { Types.Block($2,$4) } 
-  | SCHEMA id DEFEQ id_list DOT          { Types.Schema($2,$4) }
+  | BLOCK id LPAREN optid_list SEMICOLON optid_list RPAREN DEFEQ term DOT              { Types.Block($2,($4,$6,$9))} 
+  | SCHEMA id DEFEQ sclause_list DOT          { Types.Schema($2,$4) }
 
 common_command:
   | SET id id DOT                        { Types.Set($2, Types.Str $3) }

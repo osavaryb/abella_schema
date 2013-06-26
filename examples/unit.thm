@@ -1,31 +1,98 @@
 Specification "unit".
 
-Define ctx: olist -> prop by
-ctx nil;
-nabla x, ctx (of x A::L) := ctx L;
-nabla x, ctx (of x A::L) := ctx L.
+
+% Define ctx: olist -> prop by
+% ctx nil;
+% nabla x, ctx (of x A::L) := ctx L;
+% nabla x, ctx (of x A::L) := ctx L.
 
 
-% Block ofb := exists A, nabla x, of.
+Block ofi ( ; ) := i.
+Block ofb (A;x) := of x A.
 
 
-Block ofb := exists A, nabla x, of x A.
+Schema ctxi := ofi.
 
-% Block ofb2 := exists A, nabla x, of x A.
+Theorem ctxi_inv: forall E G, ctxi G -> member E G -> (E = i).
+intros. apply inversion to H1 H2. search.
+
+
+
+Schema ctxof := exists B, nabla x, ofb (B;x).
+
+ Theorem ctxof_inv: forall E G, ctxof G -> member E G -> (exists A X, E = of X A /\ fresh_tm_in_ty X A).
+intros. apply inversion to H1 H2. search.
+
+
+ Theorem ctxof_of_uniq : forall G X A B,  ctxof G -> member (of X A) G -> member (of X B) G -> A = B.
+ intros. apply unique to H1 H2 H3. search.
+
+
+
+
+% Block ofp := nabla x p, path x p.
+% Type foo ty -> ty.
+Type bar ty -> ty.
+
+Block ofc ( A ; x) := of x (bar A).
+%Block ofd := exists A, nabla x, of (bar x) A.
+
+% Block ofb2 := exists A, nabla x, of x (foo A).
  
 
-% induction on 1. intros. case H1.
-% search.
-% apply IH to H2. search.
+
 
 % Block ofb := exists (A:ty), nabla (x:tm), of x A.
-
- Schema ctx' : olist -> prop := ofb.
-
-% Theorem ctx'_inv: forall E G, ctx' G -> member E G -> (exists A X, E = of X A /\ fresh_tm_in_ty X A).
-% intros. apply inversion to H1 H2. search.
+ Schema ctxoio := exists Z B, nabla n, (ofb (Z;n), ofi, ofb(B;n)).
 
 
- Theorem ctx'_of_uniq : forall G X A B,  ctx' G -> member (of X A) G -> member (of X B) G -> A = B.
- intros. apply unique to H1 H2 H3. search.
+Theorem ctxoio_inv: forall E G D P, ctxoio G D P -> member E G -> (exists B Z X, E = of X B /\ member i D /\ member (of X Z) P /\ fresh_tm_in_ty X Z /\ fresh_tm_in_ty X B).
+intros. apply inversion to H1 H2. search.
+
+
+Theorem ctxoio_of_uniq : forall G1 G2 G3 X A B,  ctxoio G1 G2 G3 -> member (of X A) G1 -> member (of X B) G1 -> A = B.
+intros. apply unique to H1 H2 H3. search.
+
+%> ctxoio_of_uniq
+%induction on 1. intros. case H1. case H2.
+%case H2. case H3. search. apply member_prune_tm to H5.
+%         case H3. apply member_prune_tm to H5. apply IH to H4 H5 H6. search.
+
+
+
+Schema ctx' := exists Z B, nabla n, (ofb (Z;n), ofi, ofb(B;n));
+               (ofi, ofi, ofi).
+
+
+Theorem ctx'_inv: forall E G1 G2 G3, ctx' G1 G2 G3 -> member E G3 -> (exists Z B n, E = (of n B) /\ member (i) G2 /\ member (of n Z) G1 /\  fresh_tm_in_ty n Z  /\  fresh_tm_in_ty n B ) \/ 
+(E = (i) /\ member (i) G2 /\ member (i) G1).
+intros. apply inversion to H1 H2. search.
+
+%> ctx'inv
+%induction on 1. intros. case H1. case H2.
+%case H2. search. H5inv: apply IH to H3 H4. case H5inv. search. search.
+%case H2. search. H5inv: apply IH to H3 H4. case H5inv. search. search.
+
+
+Theorem ctx'_of_uniq : forall G1 G2 G3 X A B,  ctx' G1 G2 G3 -> member (of X A) G1 -> member (of X B) G1 -> A = B.
+intros. apply unique to H1 H2 H3. search.
+
+
+
+%> ctx'uni
+% induction on 1. intros. case H1. case H2. 
+% case H2. case H3. search. apply member_prune_tm to H5. 
+%          case H3. apply member_prune_tm to H5. apply IH to H4 H5 H6. search.
+% case H2. case H3. apply IH to H4 H5 H6. search. 
+
+
+Schema ctxk := exists Z B, nabla n, (ofb (Z;n), ofi, ofb(B;n));
+               exists Z, nabla n, (ofb (Z;n), ofi, ofi).
+
+Theorem ctxk_inv: forall E G1 G2 G3, ctxk G1 G2 G3 -> member E G3 -> (exists Z B n, E = (of n B) /\ member (i) G2 /\ member (of n Z) G1 /\  fresh_tm_in_ty n Z  /\  fresh_tm_in_ty n B ) \/ 
+(exists Z n, E = (i) /\ member (i) G2 /\ member (of n Z) G1).
+intros. apply inversion to H1 H2. search.
+
+Theorem ctxk_of_uniq : forall G1 G2 G3 X A B,  ctxk G1 G2 G3 -> member (of X A) G1 -> member (of X B) G1 -> A = B.
+intros. apply unique to H1 H2 H3. search.
 

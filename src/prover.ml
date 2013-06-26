@@ -34,7 +34,7 @@ let lemmas : lemmas ref = ref []
 type blocks = (id * ((id * ty) list * (id * ty) list * uterm)) list
 let blocks : blocks ref = ref []
 
-type schemas = (id * (id list)) list
+type schemas = (id * (int * ((id list)*(id list)*(((id list)*(id list)*id)) list) list)) list
 let schemas : schemas ref = ref []
 
 type subgoal = unit -> unit
@@ -486,7 +486,6 @@ let rec makePruneGeneric tys =
   |  [] ->  ""
 end
 
-(* I could remove the repeated types in tys1 and tys2 *)
 let rec makeBlockGeneric tys1 tys2 =
   let tys1 = rem_rep tys1 in
   let tys2 = rem_rep tys2 in
@@ -500,6 +499,20 @@ let add_block name block =
 let get_block name =
  try List.assoc name !blocks 
  with Not_found -> failwith (sprintf "Block %s undefined." name)
+
+
+(* get block and substitute variables names in it *)
+let get_block_sub (idsa,idsb,bid) =
+ let (idtys1,idtys2,utm) = get_block bid in
+ begin if (List.length idtys1 <> List.length idsa)||(List.length idtys2 <> List.length idsb) then
+    failwith (sprintf "Wrong number of arguments passed to block %s" bid) 
+ else
+   let (ids1,tys1) = List.split idtys1 in
+   let (ids2,tys2) = List.split idtys2 in
+   let utm' = rename_ids_in_uterm (List.append (List.combine ids1 idsa) (List.combine ids2 idsb)) utm in
+   ((List.combine idsa tys1),(List.combine idsb tys2), utm')
+ end 
+
 
 let add_schema name schema =
  schemas := (name, schema)::!schemas
@@ -531,17 +544,58 @@ begin match idtys with
 | [] -> []
 end
 
-let make_inv_stmt id ids = 
-  	    let mts = List.map get_block ids in
+
+(* t1 = ctx G1 ... GN *)
+(* t2 = member E Gi *)
+(* output i & Gi *)
+let member_of_ith t1 t2 =
+  begin match observe t1, observe t2 with
+  | App (t1h,t1l), App(t2h,t2l) -> if ((term_to_string t2h) = "member") then
+      let gi = term_to_string (hnorm (List.hd (List.tl t2l))) in 
+       (mem_pos gi t1l)
+  else failwith "Unexpected in inversion, second argument should be of the form 'member E G'. "
+  | _ -> failwith "Unexpected in inversion, hypothesis should be of the given form."
+  end
+
+(* ids: (a,b, (c,d,e) list) list *)
+(* ground on the ith projection of the context *)
+(* fresh on a b *)
+(* for every (c,d,e) other than the ith, member l(c,d,e) Gjth *)
+(* for ith (c,d,e), E = l(c,d,e) *)
+let make_inv_stmt i id arr ids = 
+    let clstrl = List.map (fun (a,b,l) ->
+                       let (j,cl,idty1,idty2) = 
+			 List.fold_left (fun (j,cstr,idty1,idty2) -> fun c -> 
+			   let ( c, d ,cbl) = get_block_sub c in
+			   let s = begin if j = i then
+			     sprintf "E = (%s)" (uterm_to_string cbl)
+			   else
+			     sprintf "member (%s) G%d" (uterm_to_string cbl) j
+			   end in
+			   (j+1,s::cstr,List.append idty1 c,List.append idty2 d)) (1,[],[],[]) l in
+		       let idtya = List.map (fun id -> (id, List.assoc id idty1)) a in
+		       let idtyb = List.map (fun id -> (id, List.assoc id idty2)) b in
+		       let freshl = all_fresh idtya idtyb in
+		       let ab = List.append a b in
+		       if ab = [] then "("^(String.concat " /\\ " (List.append cl freshl))^")" else
+		       sprintf "(exists %s, %s)" (String.concat " " (List.append a b)) (String.concat " /\\ " (List.append cl freshl))) ids in
+    let ctxgl =  string_count arr "G" in
+    let ctxg = String.concat " " ctxgl in
+    sprintf "forall E %s, %s -> member E G%d -> %s. \n" ctxg (id^" "^ctxg) i (String.concat " \\/ \n" clstrl)
+
+(*
+  	    let mts = List.map get_block_sub ids in
 	    let invstrl = List.map (fun (idtys1,idtys2,utm) -> 
 	      let (id1s,ty1s) = List.split idtys1 in
 	      let (id2s,ty2s) = List.split idtys2 in
 	      let freshl = all_fresh idtys1 idtys2 in
 	      if (List.append id1s id2s) = [] then "(E = "^(uterm_to_string utm)^")" else " (exists "^(String.concat " " id1s)^" "^(String.concat " " id2s)^", E = "^(uterm_to_string utm)^" /\\ "^(String.concat "/\\" freshl)^") ") mts in
 	    "forall E G, \n "^id^" G -> member E G ->"^(String.concat "\\/ \n" invstrl)^". \n"
-
+*)
 let make_inv_prf ids =
-  "IHinv: induction on 1. intros H1inv H2inv. H3inv : case H1inv. case H2inv."^(str_repeat (List.length ids) "H4inv : case H2inv. search. apply IHinv to H3inv H4inv. search. \n")
+  let i = List.length ids in
+  let bsl = if i < 2 then " search. \n" else " case H5inv."^(str_repeat i " search.")^" \n" in
+  "IHinv: induction on 1. intros H1inv H2inv. H3inv : case H1inv. case H2inv."^(str_repeat i (" H4inv : case H2inv. search. H5inv: apply IHinv to H3inv H4inv."^bsl))
 
 
 let rec safe_uni_ground eql bls n = 
@@ -550,9 +604,12 @@ let rec safe_uni_ground eql bls n =
 		     (fun a (idtys1,idtys2,ut) -> 
 		       begin match a with
 		       | true -> 
-			   let cid = term_to_string (get_nth_id n (uterm_to_term [] ut)) in
-			   let (id2,_) = List.split idtys2 in
-			   List.mem cid id2
+			   (* need to check that the block could add the checked assumption*)
+			   begin try 
+			     let cid = term_to_string (get_nth_id n (uterm_to_term [] ut)) in
+			     let (id2,_) = List.split idtys2 in
+			     List.mem cid id2
+			   with _ -> true (* if you couldn't get the nth, then you couldn't add the block with it, so it's al-right *) end
 		       | false -> false
 		       end) 
 		     true bls)
@@ -564,14 +621,17 @@ let rec safe_uni_ground eql bls n =
 
 
 
-(* schemaname, nabla ground, canonical block *)
-let make_uni_stmt' id tm1 tm2 nl =
+(* schemaname, nabla ground, canonical block, arriety of the schema, block being uniqued *)
+let make_uni_stmt id tm1 tm2 nl arr gi =
    let idsA = List.map (fun i -> "A"^(string_of_int i)) nl in
    let idsB = List.map (fun i -> "B"^(string_of_int i)) nl in
   let eqstrl = List.map (fun (a,b) -> a^" = "^b) (List.combine idsA idsB) in
-  "forall G X "^(String.concat " " (List.append idsA idsB))^" , "^id^" G -> member ( "^(term_to_string tm1)^") G -> member ("^(term_to_string tm2)^") G -> "^(String.concat " /\\ " eqstrl)^" ." 
+    let ctxgl =  string_count arr "G" in
+    let ctxg = String.concat " " ctxgl in
+  "forall "^ctxg^" X "^(String.concat " " (List.append idsA idsB))^" , "^id^" "^ctxg^" -> member ( "^(term_to_string tm1)^") G"^(string_of_int gi) ^" -> member ("^(term_to_string tm2)^") G"^(string_of_int gi) ^" -> "^(String.concat " /\\ " eqstrl)^" ." 
 
 
+(*
 let make_uni_stmt id n (idtys1,idtys2,utm) =
   let ac = ref 0 in
   let bc = ref 0 in
@@ -588,18 +648,21 @@ let make_uni_stmt id n (idtys1,idtys2,utm) =
   let (_,idsB) = List.split idaB in
   let eqstrl = List.map (fun (a,b) -> a^" = "^b) (List.combine idsA idsB) in
   "forall G "^idGround^" "^(String.concat " " (List.append idsA idsB))^" , "^id^" G -> member ( "^tmAstr^") G -> member ("^tmBstr^") G -> "^(String.concat " /\\ " eqstrl)^" ." 
-
+*)
 
 (* schemaname, block names, blocks, block_include *)
  let make_uni_prf id mts ads = 
   let h1 =   "IHuni: induction on 1. intros H1uni H2uni H3uni. H4uni: case H1uni. case H2uni.\n" in
   let h2l = List.map (fun ((idtys1,idtys2,utm),b) -> 
-    let (id2,ty2) = List.hd idtys2 in 
    if b then
+     let (id2,ty2) = List.hd idtys2 in 
   "H5uni: case H2uni. H6uni: case H3uni. search. apply member_prune_"^(ty_to_string ty2)^" to H6uni.\n"^"H6uni: case H3uni. apply member_prune_"^(ty_to_string ty2)^" to H5uni. apply IHuni to H4uni H5uni H6uni. search."
   else  "H5uni:case H2uni. H6uni: case H3uni. apply IHuni to H4uni H5uni H6uni. search."
 ) (List.combine mts ads) in
   h1^(String.concat "" h2l)
+
+ 
+
 
 (* END OF SCHEMA *)
 

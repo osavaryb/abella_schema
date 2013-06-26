@@ -418,21 +418,23 @@ let rec process_proof name =
    | Apply(h, args, ws, hn) -> 
   let h = begin match h with 
    | "inversion" ->
-   begin match (get_hyp (List.hd args)) with
-   | Pred ( t, r) ->
+   begin match (get_hyp (List.hd args), get_hyp (List.hd (List.tl args))) with
+   | Pred ( t, r), Pred (t1, _ ) ->
+       (* t1 should be of the form "member E Gi" *)
    let schName = get_head_id t in
    let hypName = "Hinv"^schName in
    begin try
      let _ = get_hyp hypName in
      hypName
    with  _ -> 
-   let bids = get_schema schName in
-   let invThmStr = make_inv_stmt schName bids in
-   let invPrfStr = make_inv_prf  bids in
+   let (arr, bids) = get_schema schName in
+   let gi = member_of_ith t t1 in
+   let invThmStr = make_inv_stmt gi schName arr bids in
+   let invPrfStr = make_inv_prf bids in
    let aStr = hypName^": assert "^invThmStr^invPrfStr in
    let holdout = ref !out in
    let holdbuf = ref !lexbuf in
-   fprintf !out "/* %s */ \n" aStr;
+(*   fprintf !out "/* %s */ \n" aStr; *)
    lexbuf := Lexing.from_string aStr;
    out := open_out "/dev/null";
    begin try 
@@ -442,7 +444,7 @@ let rec process_proof name =
     hypName
    with AbortProof ->
      out := !holdout; lexbuf := !holdbuf; failwith "error in inv" end   end
-   | _ -> failwith "unexpected in inversion" 
+   | _,_ -> failwith "unexpected in inversion" 
    end
    |  "unique" -> 
 		    begin match (get_hyp (List.hd args)) with
@@ -452,43 +454,45 @@ let rec process_proof name =
 			| Pred (t1 ,_), Pred(t2 ,_) -> (* t1,t2 are of the form member E G *)
 			    let pstr = (get_head_id (get_nth_id 1 t1)) in
 (* for each block in ids, add 1 to the list ads if the predicate get introduced, 0 otherwise.*)
-			    let bids = get_schema schName in
-			    let mts = List.map get_block bids in
+			    let (arr, bids) = get_schema schName in
+			    let gi = member_of_ith t t1 in
+			    let bids = List.map (fun (a,b,c) -> (a,b, List.nth c (gi-1))) bids in (*stub*)
+			    let bnames = List.map (fun (a,b,(c,d,e)) -> (c,d,e)) bids in
+			    let mts = List.map get_block_sub bnames in
 			    (* get a canonical block, first with 1, and generate the statement from it *)
 			    let t1l,t2l = 
 			      begin match observe t1, observe t2 with
-			      | App (t1h , t1l), App ( t2h , t2l) ->  if ((term_to_string t1h) = "member") &&((term_to_string t2h) = "member") then (t1l,t2l) else failwith "Unexpected in inversion: hypothesis 1 and 2 should be of form 'member A G'"
-			      | _ -> failwith  "Unexpected in inversion: hypothesis 1 and 2 should be of form 'member A G'"
+			      | App (t1h , t1l), App ( t2h , t2l) ->  if ((term_to_string t1h) = "member") &&((term_to_string t2h) = "member") then (t1l,t2l) else failwith "Unexpected in unique: hypothesis 1 and 2 should be of form 'member A G'"
+			      | _ -> failwith  "Unexpected in unique: hypothesis 1 and 2 should be of form 'member A G'"
 			      end in
 
 			    let eql = pairwiseEqual (observe (hnorm (List.hd t1l))) (observe (hnorm (List.hd t2l)))  in
 			    let n = safe_uni_ground eql mts 1 in
-			    let hypName = "Huni"^pstr^schName^(string_of_int n) in
-			    fprintf !out "\n || %s || safe at %d \n" (String.concat " " (List.map string_of_int eql)) n; 
+			    let hypName = "Huni"^pstr^schName^(string_of_int gi)^(string_of_int n) in
+(*			    fprintf !out "\n || %s || safe at %d \n" (String.concat " " (List.map string_of_int eql)) n;  *)
 			    begin try
 			      let _ = get_hyp hypName in
 			      hypName
 			    with _ ->
 			       let (nl,tu1,tu2) = makeUniqueTerms (List.hd t1l) (List.hd t2l) n in
 			       let ads = instOfPats tu1 mts !sign in
-			       printf "\nmakeUnique resulted in term %s and %s\n" (term_to_string tu1) (term_to_string tu2);
+(*			       printf "\nmakeUnique resulted in term %s and %s\n" (term_to_string tu1) (term_to_string tu2); *)
 			       begin if (List.fold_left (fun b b1 -> b || b1) false ads) then () else failwith ("No block matches hypothesis of the given form in "^schName) end;
-			      let uniThmStr = make_uni_stmt' schName tu1 tu2 nl in
-(*			      let uniThmStr = make_uni_stmt schName n cblock in *)
+			      let uniThmStr = make_uni_stmt schName tu1 tu2 nl arr gi in
 			      let uniPrfStr = make_uni_prf schName mts ads in
 			      let aStr = hypName^" : assert "^uniThmStr^uniPrfStr in
-(*			      let holdout = ref !out in *)
+			      let holdout = ref !out in 
 			      let holdbuf = ref !lexbuf in
-			      fprintf !out "/* %s */ \n" aStr;
-(*			      out := open_out "/dev/null"; *)
+(*			      fprintf !out "/* %s */ \n" aStr; *)
+			      out := open_out "/dev/null"; 
 			      lexbuf := Lexing.from_string aStr; 
 			      begin try 
 				process_proof "";
-(*				out := !holdout; *)
+				out := !holdout; 
 				lexbuf := !holdbuf;
 				hypName
 			      with AbortProof ->
-			      (*  out := !holdout; *) lexbuf := !holdbuf; failwith "error in uniq" end  end
+			        out := !holdout;  lexbuf := !holdbuf; failwith "error in uniq" end  end
 			| _ -> failwith "unexpected in inversion" 
 			end
 		    | _ -> failwith "unexpected in inversion" 
@@ -606,11 +610,8 @@ let rec process () =
                 commit_global_consts local_sr local_sign ;
                 compile (CDefine(idtys, defs)) ;
                 add_defs ids Inductive defs
-        | Block (id,(idtys1,idtys2,ut)) ->  (* STUB *)
+        | Block (id,(ids1,ids2,ut)) ->  
                check_noredef [id];
-
-	    let (ids1,_) = List.split idtys1 in
-	    let (ids2,_) = List.split idtys2 in
 	    let (th,tt) = 
 	      begin match observe (uterm_to_term [] ut) with
 	      | App(th,tt) -> (th,tt)	     
@@ -644,21 +645,30 @@ let rec process () =
 		  ()
 	    end  (* match pty *)
 
-	| Schema (id,ids) -> (* STUB *)
+	| Schema (id,bids) -> 
+    (* check that the schema wasn't already defined,*)
             check_noredef [id];
-	    add_schema id ids;
-	    let schTy = "olist -> prop" in
-	    let mts = List.map get_block ids in
-	    (* context definition *)
-	    let clstrl = List.map (fun (idtys1,idtys2,utm) -> 
-	      let (ids2, _ ) = List.split idtys2 in
-	      if ids2 = [] then 
-		id^" ("^(uterm_to_string utm)^" :: G) := "^id^" G"
-              else 
-	      "nabla "^(String.concat " " ids2)^", "^id^" ("^(uterm_to_string utm)^" :: G) := "^id^" G") mts in
-	    let cdef = begin match List.length ids with
-	    |  0 -> "Define "^id^":"^schTy^" by \n"^id^" nil."
-	    |  _ -> "Define "^id^":"^schTy^" by \n"^id^" nil;"^(String.concat ";\n" clstrl)^"." end in
+(* that for each block, the applied variables are bound from the proper quantifier *)
+	    let _ = List.map (fun (a,b,l) -> 
+	      (List.map (fun (c,d,e) -> if (List.fold_left (fun r -> fun var -> r && List.mem var a) true c)  && (List.fold_left (fun r -> fun var -> r && List.mem var b) true d)  then () else failwith (sprintf "Free variable(s) in the declaration of %s" id)) l)) bids in
+(* that the arriety of the schema is the same for every clause (save the result) *)
+	    let arr = (fun (a,b,l) -> List.length l) (List.hd bids) in
+	    let _ = List.map (fun (a,b,l) -> if arr = (List.length l) then () else failwith (sprintf "All clauses should have the same arriety (%d) in the declaration of %s" arr id)) bids in
+	    (*and that  nabla bound variables are used at most once in every block. *)
+	    let _ = List.map (fun (a,b,l) ->
+	      (List.map (fun (c,d,e) -> if d = (rem_rep d) then () else failwith (sprintf "Nabla bound variable should be used linearly in the declaration of %s" id)) l)) bids in
+	    add_schema id (arr, bids);
+	    let schTy = (str_repeat arr " olist ->")^" prop" in
+	    let blids = List.map (fun (a,b,l) -> l) bids in 
+	    let clstrl = List.map (fun e ->
+		 List.fold_left (fun (i,defl,defr) -> fun  (idtys1 ,idtys2 , utm) -> (i+1,defl^" ("^(uterm_to_string utm)^" :: G"^(string_of_int i)^")", defr^" G"^(string_of_int i))) (1, id, id) (List.map get_block_sub e)) blids in
+	    let cdef = begin match List.length blids with
+	    |  0 -> "Define "^id^":"^schTy^" by \n"^id^(str_repeat arr " nil")^"."
+	    |  _ -> "Define "^id^":"^schTy^" by \n"^id^(str_repeat arr " nil")^";\n"^(String.concat ";\n" (List.map (fun ((_,b,_),(_,d,e)) -> 
+	      if b = [] then 
+	      sprintf "%s := %s "  d e
+		else 
+	      sprintf "nabla %s , %s := %s" (String.concat " " b) d e) (List.combine bids clstrl)))^"." end in
 	    fprintf !out "%s \n" cdef; flush stdout;
 	    let holdbuf = ref !lexbuf in
 	    let holdout = ref !out in

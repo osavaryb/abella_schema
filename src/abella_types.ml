@@ -59,8 +59,8 @@ type top_command =
   | Close of id list
   | SSplit of id * id list
   | TopCommon of common_command
-  | Block of id * (((id*ty) list) * ((id*ty) list) * uterm)
-  | Schema of id * id list
+  | Block of id * ((id list) * (id list) * uterm)
+  | Schema of id * (id list * id list * (((id list)*(id list)*id) list)) list
 
 type compiled =
   | CTheorem of id * metaterm
@@ -181,10 +181,13 @@ let top_command_to_string tc =
         else
           sprintf "Split %s" id
     | Block (id, (ids1,ids2,t)) ->
-	let eS = if ids1 = [] then "" else sprintf "exists %s," (idtys_to_string ids1) in 
-	let nS = if ids2 = [] then "" else sprintf "exists %s," (idtys_to_string ids2) in
-	sprintf "Block %s := %s %s %s" id eS nS (uterm_to_string t)
-    | Schema (id, ids) ->
+	let eS = if ids1 = [] then "(" else sprintf "( %s" (id_list_to_string ids1) in 
+	let nS = if ids2 = [] then "; )" else sprintf "; %s)" (id_list_to_string ids2) in
+	sprintf "Block %s %s %s := %s" id  eS nS (uterm_to_string t)
+    | Schema (id, bgids) ->
+	let bids = List.map (fun (a,b,c) -> c) bgids in
+	let bhids = List.map List.hd bids in
+	let ids =  List.map (fun (a,b,c) -> c) bhids in
          sprintf "Schema %s := %s" id (id_list_to_string ids)
     | TopCommon(cc) ->
         common_command_to_string cc

@@ -380,6 +380,17 @@ let get_nth_id n tm =
   | _ -> failwith "Unexpected tm in get_nth_id"
   end
 
+let rec mem_pos s l = begin match l with
+| h::t -> if (term_to_string h) = s then 1 else 
+              (mem_pos s t)+1
+| [] -> failwith ("in mem_pos, "^s^" not found in list")
+end
+
+let rec string_count n s = begin match n with
+|  0 -> []
+|  n -> List.append (string_count (n-1) s) [s^(string_of_int n)]
+end
+
 (* remove repeated strings from list, keeping only the last occ. *)
 let rec rem_rep idl = begin match idl with
 |  id::idl' -> 
