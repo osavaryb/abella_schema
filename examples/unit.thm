@@ -64,7 +64,7 @@ Schema ctx' := exists Z B, nabla n, (ofb (Z;n), ofi, ofb(B;n));
                (ofi, ofi, ofi).
 
 
-Theorem ctx'_sync: forall X A G1 G2 G3, ctx' G1 G2 G3 -> member (of X A) G3 -> (exists Z,  member (i) G2 /\ member (of X Z) G1 /\  fresh_tm_in_ty X Z /\ fresh_tm_in_ty X A).
+Theorem ctx'_sync: forall X A G1 G2 G3, ctx' G1 G2 G3 -> member (of X A) G3 -> (exists Z,  member (i) G2 /\ member (of X Z) G1 /\  fresh_tm_in_ty X Z).
 intros. apply sync to H1 H2. search.
 
 % induction on 1 . intros. case H1. 
@@ -109,3 +109,8 @@ intros. apply inversion to H1 H2. search.
 Theorem ctxk_of_uniq : forall G1 G2 G3 X A B,  ctxk G1 G2 G3 -> member (of X A) G1 -> member (of X B) G1 -> A = B.
 intros. apply unique to H1 H2 H3. search.
 
+
+
+Block lam (N; x) := (pi u\ bred N u => bred x u).
+
+Schema ctxlam := exists N, nabla x, lam(N;x).

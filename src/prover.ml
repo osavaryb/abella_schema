@@ -605,7 +605,7 @@ let make_sync_clause i ((a,b,l),(it,sub, _)) =
     let idb' = rem_rep idb in
     let idtysa = List.map (fun id -> (id, List.assoc id idtys1)) ida' in
     let idtysb = List.map (fun id -> (id, List.assoc id idtys2)) idb' in
-    let freshl = all_fresh (List.append idtysa eit) (List.append idtysb nit) in
+    let freshl = all_fresh idtysa (List.append nit idtysb)  (* all_fresh (List.append idtysa eit) (List.append idtysb nit)  *) in  (* doesn't work if e.g. B -> foo A *)
     let ab = List.append ida' idb' in
     if ab = [] then "("^(String.concat " /\\ " (List.append cl freshl))^")" else
     sprintf "(exists %s, %s)" (String.concat " " ab) (String.concat " /\\ " (List.append cl freshl))

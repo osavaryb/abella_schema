@@ -644,46 +644,38 @@ let rec process () =
                 add_defs ids Inductive defs
         | Block (id,(ids1,ids2,ut)) ->  
                check_noredef [id];
-	    let (th,tt) = 
-	      begin match observe (uterm_to_term [] ut) with
-	      | App(th,tt) -> (th,tt)	     
-	      | Var v -> (Term.(var v.tag v.name v.ts v.ty), []) 
-	      | _ -> failwith "General block not implemented yet(1)."
-	      end in
-	    let id3 = (term_to_string th) in
-	    let pty = (lookup_const !sign id3) in
-	    begin match pty with
-	    | Ty(tys, bty) -> 
-		let tys1 = List.map (fun id1 -> get_ty_from_tml id1 (List.map observe tt) tys sign) ids1 in
-		let tys2 = List.map (fun id2 -> get_ty_from_tml id2 (List.map observe tt) tys sign) ids2 in
-		let proofStr = makeBlockGeneric tys1 tys2 in
-		add_block id (List.combine ids1 tys1,List.combine ids2 tys2,ut);
-		if (proofStr <> "") then fprintf !out "<< \n %s >> \n" proofStr; 
-		if (proofStr <> "") then
-		  let holdbuf = ref !lexbuf in 
-		  let holdout = ref !out in
-		  out := open_out "/dev/null";
-		  lexbuf := (Lexing.from_string proofStr);
-		  begin try 
-		    process ();
-		    out := !holdout;
-		    lexbuf := !holdbuf; 
-		  with e ->
-		    out := !holdout;
-		    lexbuf := !holdbuf; 
-		    raise e;
-		  end (* end try process *)
-		else
-		  ()
-	    end  (* match pty *)
+	    let idtys = type_vars_in (uterm_to_term [] ut) (Ty( [], "o")) sign [] in
+	    printf ( "<| typevars in block: \n %s \n|>") (idtys_to_string idtys);
+(*	    let _ = type_uterm ~sr:!sr ~sign:!sign ~ctx:!ctx ut in *)
+	    let tys1 = List.map (fun id -> List.assoc id idtys) ids1 in
+	    let tys2 = List.map (fun id -> List.assoc id idtys) ids2 in
+	    let proofStr = makeBlockGeneric tys1 tys2 in
+	    add_block id (List.combine ids1 tys1,List.combine ids2 tys2,ut);
+	    if (proofStr <> "") then fprintf !out "<< \n %s >> \n" proofStr; 
+	    if (proofStr <> "") then
+	      let holdbuf = ref !lexbuf in 
+	      let holdout = ref !out in
+	      out := open_out "/dev/null";
+	      lexbuf := (Lexing.from_string proofStr);
+	      begin try 
+		process ();
+		out := !holdout;
+		lexbuf := !holdbuf; 
+	      with e ->
+		out := !holdout;
+		lexbuf := !holdbuf; 
+		raise e;
+	      end (* end try process *)
+	    else
+	      ()
 
 	| Schema (id,bids) -> 
-    (* check that the schema wasn't already defined,*)
+    (* check that the name is fresh, *)
             check_noredef [id];
-(* that for each block, the applied variables are bound from the proper quantifier *)
+(* that for each block, the applied variables are bound from the proper quantifier, *)
 	    let _ = List.map (fun (a,b,l) -> 
 	      (List.map (fun (c,d,e) -> if (List.fold_left (fun r -> fun var -> r && List.mem var a) true c)  && (List.fold_left (fun r -> fun var -> r && List.mem var b) true d)  then () else failwith (sprintf "Free variable(s) in the declaration of %s" id)) l)) bids in
-(* that the arriety of the schema is the same for every clause (save the result) *)
+(* that the arriety of the schema is the same for every clause (save the result), *)
 	    let arr = (fun (a,b,l) -> List.length l) (List.hd bids) in
 	    let _ = List.map (fun (a,b,l) -> if arr = (List.length l) then () else failwith (sprintf "All clauses should have the same arriety (%d) in the declaration of %s" arr id)) bids in
 	    (*and that  nabla bound variables are used at most once in every block. *)
@@ -693,7 +685,7 @@ let rec process () =
 	    let schTy = (str_repeat arr " olist ->")^" prop" in
 	    let blids = List.map (fun (a,b,l) -> l) bids in 
 	    let clstrl = List.map (fun e ->
-		 List.fold_left (fun (i,defl,defr) -> fun  (idtys1 ,idtys2 , utm) -> (i+1,defl^" ("^(uterm_to_string utm)^" :: G"^(string_of_int i)^")", defr^" G"^(string_of_int i))) (1, id, id) (List.map get_block_sub e)) blids in
+		 List.fold_left (fun (i,defl,defr) -> fun  (idtys1 ,idtys2 , utm) -> (i+1,defl^" (("^(uterm_to_string utm)^") :: G"^(string_of_int i)^")", defr^" G"^(string_of_int i))) (1, id, id) (List.map get_block_sub e)) blids in
 	    let cdef = begin match List.length blids with
 	    |  0 -> "Define "^id^":"^schTy^" by \n"^id^(str_repeat arr " nil")^"."
 	    |  _ -> "Define "^id^":"^schTy^" by \n"^id^(str_repeat arr " nil")^";\n"^(String.concat ";\n" (List.map (fun ((_,b,_),(_,d,e)) -> 

@@ -18,3 +18,5 @@ type    of        tm -> ty -> o.
 type    path      tm -> path -> o.
 
 type    foo        ty -> ty.
+
+type bred tm -> tm -> o.

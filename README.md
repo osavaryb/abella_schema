@@ -1,3 +1,9 @@
+(02/07/2013)
+* TODO: revisit how to type the block head, maybe storing term instead of uterm. 
+  > Deprecated get_ty_from_tml, using type_vars_in which take a term, its expected type, the ctx signature and a list of locally bound variables, and returns a list of free variables appearing in the term together with their type. 
+> Block and schema definition with quantifier now works, will test the tacticals tomorrow.
+
+
 (01/07/2013)
 > Sync works -> proof is quite like unique, if not matched, can skip the head case, o.w. apply I.H. and search.
 * TODO: find a way to type and add the new variables from patternMatch in the list of "fresh" variables in make_sync_stmt.

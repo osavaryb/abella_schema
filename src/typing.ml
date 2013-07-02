@@ -166,6 +166,47 @@ let lookup_const (_, ctable) id =
     | Not_found -> failwith ("Unknown constant: " ^ id)
 
 (* SCHEMA *)
+let rec rem_n_from_list n l =
+begin match (n,l) with
+| (n, h::tl) -> rem_n_from_list (n-1) tl
+| (0, []) -> []
+|  _ -> failwith "in rem_n_from_list, coudln't remove n element" 
+end
+
+
+let rec type_vars_in tm ty sign lbound = 
+begin match observe tm with 
+| Var v -> let vn = Term.(v.name) in
+         begin try 
+	   let ety = lookup_const !sign vn in
+	   if (ty_to_string ty) <> (ty_to_string ety) then
+	     failwith ("in type_vars_in, constant "^(term_to_string tm)^" has type "^(ty_to_string ety)^" instead of expected type "^(ty_to_string ty)^". \n")
+	   else
+	     []
+         with _ -> 
+	   if List.mem_assoc vn lbound then [] else [(Term.(v.name), ty) ]
+	 end
+| App (th, tt) ->
+    begin try 
+      let Ty(tys,bty)  = lookup_const !sign (term_to_string th) in
+      if bty = (ty_to_string ty) then 
+      let idtysl = List.map (fun (tm,ty) -> type_vars_in tm ty sign lbound) (List.combine tt tys) in
+      List.flatten idtysl
+	else
+	failwith ("in type_vars_in, non-fully applied function "^(term_to_string tm)^". \n")
+    with _ -> failwith ("in type_vars_in, can't type "^(term_to_string tm)^"%s. \n") end
+| Lam (idtys, t ) -> 
+       let Ty(tys,bty) = ty in
+       let n = List.length idtys  in
+       if n >= (List.length tys) then
+	 type_vars_in t (Ty(rem_n_from_list n tys, bty)) sign (List.append idtys lbound)
+       else
+	 failwith ("in type_vars_in, "^(term_to_string tm)^" doesn't fit type "^(ty_to_string ty)^". \n" )
+| DB i  -> []
+|  _ -> failwith ("in type_vars_in, unhandled "^(term_to_string tm)^". \n")
+end
+
+(*
 let rec get_ty_from_tml id tml tyl sign = 
 begin match (tml,tyl) with
 | (App(th,tt)::tl,(tyh::tytl)) ->
@@ -181,7 +222,7 @@ begin match (tml,tyl) with
     if (v.name = id) then tyh else get_ty_from_tml id tl tytl sign 
 |  _ -> raise Not_found
 end
-
+*)
 
 
 
