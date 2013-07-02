@@ -255,50 +255,79 @@ let get_lemma name =
 
 (* SCHEMA *)
 
-
-
-(* Cases: hd1 <~> hd2 <~ hd3 & args1 args2 are pairwise uni to args3 *)
-(* returns true if tm could the described pattern ptm, false otherwise *)
-let rec instOfPat tm eids ptm ctable =
-   begin match observe tm, observe ptm  with
-   | Var _, Var _ -> 
-       begin match (List.mem_assoc (term_to_string tm) ctable, List.mem_assoc (term_to_string ptm) ctable) with
-      | true, true -> if (term_to_string tm) = (term_to_string ptm) then true else false
-      | false, false -> true
-      | _ , _ -> false
-      end
-   | App(th,tt), App(pth,ptt) ->  begin try (instOfPat th eids pth ctable) && (List.fold_left (fun cur (tm',ptm') -> cur && (instOfPat tm' eids ptm' ctable)) true (List.combine tt ptt))
-                                  with
-                                   | e -> false
-                                  end
-   | App(th,tt), Var v -> 
-   (* check if v is exists bound, then true, else [nabla bound] false *)
-      if (List.mem_assoc Term.(v.name) eids) then true else false
-(*            if List.mem_assoc Term.(v.name) ctable then false else true *)
-   | Var v, App(pth,ptt) -> false
- (*            if List.mem_assoc Term.(v.name) ctable then false else true *)
-   | Lam (idtys,tm'), _ -> failwith "Lambda case of tm unimplemented in instOfPats"
-   | _ , _ -> failwith "unexpected in instOfPats (2)"
-   end
-
-(* returns a bitmap of booleans indicating, for each pattern in bls, if t1 and t2 could both match it *)
-let rec instOfPats t bls sign =
-let (_,ctable) = sign in
-begin match bls with
-| (idtys1,idtys2,utm)::bls' -> (instOfPat t idtys1 (uterm_to_term [] utm) ctable)::(instOfPats t bls' sign)
-| [] -> []
+(* verify that each variable appearing in the substitution is only bound to a single term *)
+let rec isPSub' sub c =
+begin match sub with
+| (pid,tm)::sub' -> 
+    if (List.mem_assoc pid c) then 
+      begin if term_to_string (List.assoc pid c) = (term_to_string tm)
+      then isPSub' sub' c
+      else false end
+    else
+      (isPSub' sub' ((pid,tm)::c))
+| [] -> true
 end
 
-(*
-  let pstr = (get_head_id (get_nth_id 1 t1)) in
-  List.map (fun (idtys1,idtys2,utm) ->  
-    begin match observe (uterm_to_term [] utm) with 
-    |  App(th,tt) -> 
-	if  (pstr = (term_to_string th)) then 1 else 0
-    |	 _ ->  0
-    end) bls
+let rec isPSub sub = isPSub' sub []
 
-*)
+
+
+
+
+let rec fvInTm tm = 
+begin match observe tm with
+|  Var v ->  [ Term.(v.name)]
+|  App(th,tt) -> 
+    let fvh = fvInTm th in
+    let fvl = List.map fvInTm tt in
+     rem_rep (List.append fvh (List.flatten fvl))
+| Lam (idtys, tm') -> 
+    let fv = fvInTm tm' in
+    let (ids,tys) = List.split idtys in
+    List.filter (fun id -> not (List.mem id ids)) fv
+| DB _ -> []
+|  _ -> failwith (sprintf "unexpected '%s' in fvInTm" (term_to_string tm))
+end
+
+(* TODO: return (b,sig,fv) where fv are the new free variables introduiced by the sub and sig is (id,tm) list *)
+(* verify if term "tm" matches pattern "ptn", returns "(b,sig)" where "b" is the answer, and "sig" a pattern substitution for which tm = (sig) ptn  
+  eids is a list of exists-bound variables in ptn *)
+let rec patternMatch tm ptn eids = 
+  let (_,ctable) = !sign in
+ begin match observe tm, observe ptn with
+ | Var v, Var pv -> 
+       begin match (List.mem_assoc (term_to_string tm) ctable, List.mem_assoc (term_to_string ptn) ctable) with
+      | true, true -> if (term_to_string tm) = (term_to_string ptn) then (true,[], []) else (false,[], []) (* both are the same constant *)
+      | false, false -> (true, [(Term.(pv.name),tm)], [Term.(v.name)] )
+      |	 _ , _ -> (false, [], [])
+       end
+ |  App(th,tt), App(pth, ptt) ->
+     let (bh, subh, fvh) = patternMatch th pth eids in
+     if bh then 
+       let rl = List.map (fun (ctm,cptn) -> patternMatch ctm cptn eids) (List.combine tt ptt) in
+       let (bl, subl, fvl) = listSplit3 rl in
+       begin if (List.fold_left (fun bt ct -> bt && ct) true bl) then
+	 let sub = List.append subh (List.flatten subl) in
+	 let fv = rem_rep (List.append fvh (List.flatten fvl)) in
+	 (* substitution *)
+	 begin if isPSub sub then (true, sub,fv) else (false, [], []) end
+       else (false, [], [])
+       end
+     else 
+       (false, [], [])
+ | App(th,tt), Var pv ->
+   (* check if v is exists bound, then true, else [nabla bound or constant] false *)
+      if (List.mem_assoc Term.(pv.name) eids) then (true, [(Term.(pv.name), tm)], fvInTm tm) else (false,[], [])
+ | Lam(idtys,tm'), Lam(pidtys,ptn') ->  patternMatch tm' ptn' eids
+ | DB i, DB j ->  if (i = j) then (true, [], []) else (false ,[], [])
+ |  _ , _ -> (false, [], [])
+ end
+
+
+(* returns a list of (bool * (id * id) list)  with, for each pattern in bls, if t could match the pattern, and if it is the case, a substitution s.t. the term = @sub pat *)
+let rec instOfPats t bls = 
+List.map (fun (idtys1,idtys2,utm) ->  patternMatch t (uterm_to_term [] utm) idtys1 ) bls
+
 
 let rec seqIdTerm id t nl = 
    begin match observe t with
@@ -344,18 +373,12 @@ let rec uniteTerms t1 t2 nl =
    | Var v1 ,App(th2,tt2) -> 
    begin if List.mem_assoc (term_to_string th2) ctable then
    failwith (sprintf "Can't unify %s with eigenvariable %s in uniteTerms" (term_to_string t2) (Term.(v1.name))) 
-(*    let (nl1, t1) = seqIdTerm "A" t2 nl in
-   let (nl2, t2) = seqIdTerm "B" t2 nl in 
-   (nl2,t1,t2) *)
    else 
     makeDummyVars nl
    end
    | App (th1,tt1), Var v2 -> 
    begin if List.mem_assoc (term_to_string th1) ctable then
    failwith (sprintf "Can't unify %s with eigenvariable %s in uniteTerms" (Term.(v2.name)) (term_to_string t1) ) 
-(*   let (nl1, t1) = seqIdTerm "A" t1 nl in
-   let (nl2, t2) = seqIdTerm "B" t1 nl in 
-   (nl2,t1,t2)*)
    else 
     makeDummyVars nl
    end
@@ -371,6 +394,9 @@ let rec uniteTerms t1 t2 nl =
       (i::nl, Term.(var v1.tag v1n v1.ts v1.ty), Term.(var v2.tag v2n v2.ts v2.ty)) 
 end
  end
+   | Lam (idtys1, tm1'), Lam (idtys2,tm2') -> (* this is only correct if bound variables are represented with DB *)
+       uniteTerms tm1' tm2' nl
+   | DB i, DB j -> if (i = j) then (nl, t1, t1) else failwith "Can't unify terms, bound variables are different"
    | _ , _ ->  
  failwith (sprintf "unexpected %s and %s in uniteTerms" (term_to_string t1) (term_to_string t2)) 
 (* safe fail    makeDummyVars nl *)
@@ -557,18 +583,70 @@ let member_of_ith t1 t2 =
   | _ -> failwith "Unexpected in inversion, hypothesis should be of the given form."
   end
 
+
+
+
+let make_sync_clause i ((a,b,l),(it,sub, _)) = 
+  let substr = List.map (fun (id,tm) -> (id, (term_to_string tm))) sub in
+  begin if it then 
+    let ( j ,cl,idtys1,idtys2, eit,nit ) = 
+      List.fold_left (fun (j,cstr,idty1,idty2, eit , nit ) -> fun c -> 
+	let ( c, d ,cbl) = get_block_sub c in
+	if (j = i) then
+	  (j,cstr, idty1, idty2, rename_ids_in_idtys substr c, rename_ids_in_idtys substr d ) 
+	else 
+	  let s = sprintf "member (%s) G%d" (uterm_to_string (rename_ids_in_uterm substr cbl)) j in
+	  let c' = List.filter (fun (id,ty) -> not (List.mem_assoc id sub)) c in
+	  let d' = List.filter (fun (id,ty) -> not (List.mem_assoc id sub)) d in (* actually none of these should match...should test *)  
+	  (j+1,s::cstr, (List.append c' idty1),(List.append d' idty2), eit, nit)) (1,[],[],[], [], []) l in
+    let (ida,tya) = List.split idtys1 in
+    let (idb,tyb) = List.split idtys2 in
+    let ida' = rem_rep ida in
+    let idb' = rem_rep idb in
+    let idtysa = List.map (fun id -> (id, List.assoc id idtys1)) ida' in
+    let idtysb = List.map (fun id -> (id, List.assoc id idtys2)) idb' in
+    let freshl = all_fresh (List.append idtysa eit) (List.append idtysb nit) in
+    let ab = List.append ida' idb' in
+    if ab = [] then "("^(String.concat " /\\ " (List.append cl freshl))^")" else
+    sprintf "(exists %s, %s)" (String.concat " " ab) (String.concat " /\\ " (List.append cl freshl))
+  else
+    "" 
+  end
+
+
+(* TODO: make processing of clauses a helper function instead of an anon one *)
 (* ids: (a,b, (c,d,e) list) list *)
 (* ground on the ith projection of the context *)
 (* fresh on a b *)
 (* for every (c,d,e) other than the ith, member l(c,d,e) Gjth *)
 (* for ith (c,d,e), E = l(c,d,e) *)
-let make_inv_stmt i id arr ids = 
+let make_sync_stmt i id arr ids ads tm = 
+  let clstrl = List.map  (make_sync_clause i) (List.combine ids ads) in
+  let clstrl = List.filter (fun s -> not (s = "")) clstrl in
+    let ctxgl =  string_count arr "G" in
+    let ctxg = String.concat " " ctxgl in
+    sprintf "forall %s, %s -> member (%s) G%d -> %s. \n" ctxg (id^" "^ctxg) (term_to_string tm) i (String.concat " \\/ \n" clstrl)
+
+
+
+
+let make_sync_prf ads = 
+let clstrl = List.map (fun (b,_,_) -> if b then "H4inv: case H2inv. search. apply IHinv to H3inv H4inv. search." else "H4inv: case H2inv. apply IHinv to H3inv H4inv. search.") ads in
+ "IHinv: induction on 1. intros H1inv H2inv. H3inv: case H1inv. H4inv: case H2inv.\n"^(String.concat "\n" clstrl)
+
+
+(* ids: (a,b, (c,d,e) list) list *)
+(* ground on the ith projection of the context *)
+(* fresh on a b *)
+(* for every (c,d,e) other than the ith, member l(c,d,e) Gjth *)
+(* for ith (c,d,e), E = l(c,d,e) *)
+let make_inv_stmt i id arr ids  =
     let clstrl = List.map (fun (a,b,l) ->
                        let (j,cl,idty1,idty2) = 
 			 List.fold_left (fun (j,cstr,idty1,idty2) -> fun c -> 
 			   let ( c, d ,cbl) = get_block_sub c in
-			   let s = begin if j = i then
-			     sprintf "E = (%s)" (uterm_to_string cbl)
+	   let s = begin if j = i then
+			      sprintf "E = (%s)" (uterm_to_string cbl) 
 			   else
 			     sprintf "member (%s) G%d" (uterm_to_string cbl) j
 			   end in
@@ -583,45 +661,40 @@ let make_inv_stmt i id arr ids =
     let ctxg = String.concat " " ctxgl in
     sprintf "forall E %s, %s -> member E G%d -> %s. \n" ctxg (id^" "^ctxg) i (String.concat " \\/ \n" clstrl)
 
-(*
-  	    let mts = List.map get_block_sub ids in
-	    let invstrl = List.map (fun (idtys1,idtys2,utm) -> 
-	      let (id1s,ty1s) = List.split idtys1 in
-	      let (id2s,ty2s) = List.split idtys2 in
-	      let freshl = all_fresh idtys1 idtys2 in
-	      if (List.append id1s id2s) = [] then "(E = "^(uterm_to_string utm)^")" else " (exists "^(String.concat " " id1s)^" "^(String.concat " " id2s)^", E = "^(uterm_to_string utm)^" /\\ "^(String.concat "/\\" freshl)^") ") mts in
-	    "forall E G, \n "^id^" G -> member E G ->"^(String.concat "\\/ \n" invstrl)^". \n"
-*)
+
 let make_inv_prf ids =
   let i = List.length ids in
   let bsl = if i < 2 then " search. \n" else " case H5inv."^(str_repeat i " search.")^" \n" in
   "IHinv: induction on 1. intros H1inv H2inv. H3inv : case H1inv. case H2inv."^(str_repeat i (" H4inv : case H2inv. search. H5inv: apply IHinv to H3inv H4inv."^bsl))
 
 
-let rec safe_uni_ground eql bls n = 
+let rec safe_uni_ground eql bls ads n = 
   begin match eql with
   | 1::eqlr -> if (List.fold_left 
-		     (fun a (idtys1,idtys2,ut) -> 
+		     (fun a ((idtys1,idtys2,ut),matches) -> 
 		       begin match a with
 		       | true -> 
-			   (* need to check that the block could add the checked assumption*)
-			   begin try 
+			   (* check if the block could add the assumption *)
+			   if matches then
 			     let cid = term_to_string (get_nth_id n (uterm_to_term [] ut)) in
 			     let (id2,_) = List.split idtys2 in
 			     List.mem cid id2
-			   with _ -> true (* if you couldn't get the nth, then you couldn't add the block with it, so it's al-right *) end
+			   else true
 		       | false -> false
 		       end) 
-		     true bls)
-  then n else safe_uni_ground eqlr bls (n+1)
-  | _::eqlr -> safe_uni_ground eqlr bls (n+1)
+		     true (List.combine bls ads))
+      then n else safe_uni_ground eqlr bls ads (n+1) 
+  | _::eqlr -> safe_uni_ground eqlr bls ads (n+1)
   | [] -> failwith "Can't ground unique theorem for given assumption"
   end
 
 
+   
 
 
-(* schemaname, nabla ground, canonical block, arriety of the schema, block being uniqued *)
+
+
+(* schemaname, nabla ground, canonical block, number of exists bound variables as a list, arriety of the schema, block being uniqued *)
 let make_uni_stmt id tm1 tm2 nl arr gi =
    let idsA = List.map (fun i -> "A"^(string_of_int i)) nl in
    let idsB = List.map (fun i -> "B"^(string_of_int i)) nl in
@@ -631,24 +704,6 @@ let make_uni_stmt id tm1 tm2 nl arr gi =
   "forall "^ctxg^" X "^(String.concat " " (List.append idsA idsB))^" , "^id^" "^ctxg^" -> member ( "^(term_to_string tm1)^") G"^(string_of_int gi) ^" -> member ("^(term_to_string tm2)^") G"^(string_of_int gi) ^" -> "^(String.concat " /\\ " eqstrl)^" ." 
 
 
-(*
-let make_uni_stmt id n (idtys1,idtys2,utm) =
-  let ac = ref 0 in
-  let bc = ref 0 in
-  let idground = term_to_string (get_nth_id n (uterm_to_term [] utm)) in
-  let idGround = String.capitalize idground in
-  let idtys2' = List.remove_assoc idground idtys2 in
-  let (id2s,_) = List.split idtys2' in
-  let (id1s,_) = List.split idtys1 in
-  let idaA = List.map (fun id -> ac := !ac+1; (id, "A"^(string_of_int !ac))) (List.append id1s id2s) in
-  let idaB = List.map (fun id -> bc := !bc+1; (id, "B"^(string_of_int !bc))) (List.append id1s id2s) in
-  let tmAstr = uterm_to_string (rename_ids_in_uterm ((idground,idGround)::idaA) utm) in
-  let tmBstr = uterm_to_string (rename_ids_in_uterm ((idground,idGround)::idaB) utm) in
-  let (_,idsA) = List.split idaA in
-  let (_,idsB) = List.split idaB in
-  let eqstrl = List.map (fun (a,b) -> a^" = "^b) (List.combine idsA idsB) in
-  "forall G "^idGround^" "^(String.concat " " (List.append idsA idsB))^" , "^id^" G -> member ( "^tmAstr^") G -> member ("^tmBstr^") G -> "^(String.concat " /\\ " eqstrl)^" ." 
-*)
 
 (* schemaname, block names, blocks, block_include *)
  let make_uni_prf id mts ads = 

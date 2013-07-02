@@ -391,6 +391,10 @@ let rec string_count n s = begin match n with
 |  n -> List.append (string_count (n-1) s) [s^(string_of_int n)]
 end
 
+
+let listSplit3 l = 
+List.fold_right (fun (a,bl,cl) (ca, cb, cc) -> (a::ca,bl::cb, cl::cc)) l ([],[],[])
+
 (* remove repeated strings from list, keeping only the last occ. *)
 let rec rem_rep idl = begin match idl with
 |  id::idl' -> 
@@ -418,11 +422,18 @@ let uterm_to_term sub t =
   in
     aux t
 
-let rec rename_ids_in_uterm ids ut = 
+let rec rename_ids_in_idtys sub idtys = 
+begin match idtys with
+|  (idh,tyh)::idtys' -> let sidtys' = rename_ids_in_idtys sub idtys' in  if
+    (List.mem_assoc idh sub) then (List.assoc idh sub, tyh)::sidtys' else (idh,tyh)::sidtys'
+|  [] -> []
+end
+
+let rec rename_ids_in_uterm sub ut = 
   match ut with
-      | UCon(p, id', ty) -> if (List.mem_assoc id' ids) then UCon(p, (List.assoc id' ids), ty) else ut
-      | ULam(p, id', ty, t) -> ULam(p,id', ty, (rename_ids_in_uterm (List.remove_assoc id' ids) t))
-      | UApp(p, t1, t2) -> UApp(p, (rename_ids_in_uterm ids t1), (rename_ids_in_uterm ids t2))
+      | UCon(p, id', ty) -> if (List.mem_assoc id' sub) then UCon(p, (List.assoc id' sub), ty) else ut
+      | ULam(p, id', ty, t) -> ULam(p,id', ty, (rename_ids_in_uterm (List.remove_assoc id' sub) t))
+      | UApp(p, t1, t2) -> UApp(p, (rename_ids_in_uterm sub t1), (rename_ids_in_uterm sub t2))
 
 let uterm_to_string t =
   term_to_string (uterm_to_term [] t)

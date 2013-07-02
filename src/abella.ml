@@ -429,23 +429,37 @@ let rec process_proof name =
    with  _ -> 
    let (arr, bids) = get_schema schName in
    let gi = member_of_ith t t1 in
-   let invThmStr = make_inv_stmt gi schName arr bids in
+   let invThmStr = make_inv_stmt gi schName arr bids  in
    let invPrfStr = make_inv_prf bids in
    let aStr = hypName^": assert "^invThmStr^invPrfStr in
-   let holdout = ref !out in
-   let holdbuf = ref !lexbuf in
-(*   fprintf !out "/* %s */ \n" aStr; *)
-   lexbuf := Lexing.from_string aStr;
-   out := open_out "/dev/null";
-   begin try 
-   process_proof "";
-   out := !holdout;
-   lexbuf := !holdbuf;
-    hypName
-   with AbortProof ->
-     out := !holdout; lexbuf := !holdbuf; failwith "error in inv" end   end
+   recurseOn aStr;
+   hypName
+end
    | _,_ -> failwith "unexpected in inversion" 
    end
+  | "sync" -> 
+   begin match (get_hyp (List.hd args), get_hyp (List.hd (List.tl args))) with
+   | Pred ( t, _), Pred (t1, _ ) ->
+   let schName = get_head_id t in 
+   let (arr, bids) = get_schema schName in
+   let t1l = 
+     begin match observe t1 with
+     | App (t1h , t1l) ->  if ((term_to_string t1h) = "member") then t1l else failwith "Unexpected in sync: hypothesis 1 should be of form 'member A G'"
+			      | _ -> failwith  "Unexpected in sync: hypothesis 1 should be of form 'member A G'"
+			      end in
+   let gi = member_of_ith t t1 in
+   let hypName = "Hsync"^schName^(string_of_int gi) in (* need to add a hash of the hypothesis *)
+   let githbids = List.map (fun (a,b,c) -> (a,b, List.nth c (gi-1))) bids in (*stub*) 
+   let bnames = List.map (fun (a,b,(c,d,e)) -> (c,d,e)) githbids in
+   let mts = List.map get_block_sub bnames in
+   let st = List.hd t1l in
+   let ads = instOfPats st mts in
+   let syncThmStr = make_sync_stmt gi schName arr bids ads st in
+   let syncPrfStr = make_sync_prf ads in (* is this right? might need ads *)
+   let aStr = hypName^" : assert "^syncThmStr^syncPrfStr in
+   printf "/* %s */" aStr;
+   recurseOn' aStr; hypName 
+   | _ , _ -> failwith " unexpected in sync" end 
    |  "unique" -> 
 		    begin match (get_hyp (List.hd args)) with
 		    | Pred (t,r) ->
@@ -455,44 +469,37 @@ let rec process_proof name =
 			    let pstr = (get_head_id (get_nth_id 1 t1)) in
 (* for each block in ids, add 1 to the list ads if the predicate get introduced, 0 otherwise.*)
 			    let (arr, bids) = get_schema schName in
-			    let gi = member_of_ith t t1 in
-			    let bids = List.map (fun (a,b,c) -> (a,b, List.nth c (gi-1))) bids in (*stub*)
-			    let bnames = List.map (fun (a,b,(c,d,e)) -> (c,d,e)) bids in
-			    let mts = List.map get_block_sub bnames in
-			    (* get a canonical block, first with 1, and generate the statement from it *)
 			    let t1l,t2l = 
 			      begin match observe t1, observe t2 with
 			      | App (t1h , t1l), App ( t2h , t2l) ->  if ((term_to_string t1h) = "member") &&((term_to_string t2h) = "member") then (t1l,t2l) else failwith "Unexpected in unique: hypothesis 1 and 2 should be of form 'member A G'"
 			      | _ -> failwith  "Unexpected in unique: hypothesis 1 and 2 should be of form 'member A G'"
 			      end in
+			    let gi = member_of_ith t t1 in
+			    let bids = List.map (fun (a,b,c) -> (a,b, List.nth c (gi-1))) bids in (*stub*)
+			    let bnames = List.map (fun (a,b,(c,d,e)) -> (c,d,e)) bids in
+			    let mts = List.map get_block_sub bnames in
+			    (* get a canonical block, first with 1, and generate the statement from it *)
 
 			    let eql = pairwiseEqual (observe (hnorm (List.hd t1l))) (observe (hnorm (List.hd t2l)))  in
-			    let n = safe_uni_ground eql mts 1 in
+			    (* I run this twice if it's not ground in 1...I could instead makeUnite without renaming, and then rename after having found which is ground *)
+			    let (nl,tu1,tu2) = makeUniqueTerms (List.hd t1l) (List.hd t2l) 1 in
+			    let ads' = instOfPats tu1 mts in
+			    let (ads, _ , _ ) = listSplit3 ads' in (* instOfPats tu1 mts !sign in *)
+			    let n = safe_uni_ground eql mts ads 1 in
 			    let hypName = "Huni"^pstr^schName^(string_of_int gi)^(string_of_int n) in
 (*			    fprintf !out "\n || %s || safe at %d \n" (String.concat " " (List.map string_of_int eql)) n;  *)
 			    begin try
 			      let _ = get_hyp hypName in
 			      hypName
 			    with _ ->
-			       let (nl,tu1,tu2) = makeUniqueTerms (List.hd t1l) (List.hd t2l) n in
-			       let ads = instOfPats tu1 mts !sign in
+			       let (nl,tu1,tu2) = if n = 1 then (nl,tu1,tu2) else makeUniqueTerms (List.hd t1l) (List.hd t2l) n in
+(*			       let ads = instOfPats tu1 mts !sign in *) (* should stay the same *)
 (*			       printf "\nmakeUnique resulted in term %s and %s\n" (term_to_string tu1) (term_to_string tu2); *)
 			       begin if (List.fold_left (fun b b1 -> b || b1) false ads) then () else failwith ("No block matches hypothesis of the given form in "^schName) end;
 			      let uniThmStr = make_uni_stmt schName tu1 tu2 nl arr gi in
 			      let uniPrfStr = make_uni_prf schName mts ads in
 			      let aStr = hypName^" : assert "^uniThmStr^uniPrfStr in
-			      let holdout = ref !out in 
-			      let holdbuf = ref !lexbuf in
-(*			      fprintf !out "/* %s */ \n" aStr; *)
-			      out := open_out "/dev/null"; 
-			      lexbuf := Lexing.from_string aStr; 
-			      begin try 
-				process_proof "";
-				out := !holdout; 
-				lexbuf := !holdbuf;
-				hypName
-			      with AbortProof ->
-			        out := !holdout;  lexbuf := !holdbuf; failwith "error in uniq" end  end
+			       recurseOn aStr; hypName end
 			| _ -> failwith "unexpected in inversion" 
 			end
 		    | _ -> failwith "unexpected in inversion" 
@@ -569,6 +576,31 @@ let rec process_proof name =
           interactive_or_exit ()
     done with
       | Failure "eof" -> ()
+
+(* schema ext *)
+(* recurseOn except w/o supressing output *)
+and recurseOn' aStr = 
+   let holdbuf = ref !lexbuf in
+   lexbuf := Lexing.from_string aStr;
+   begin try 
+   process_proof "";
+   lexbuf := !holdbuf;
+   ()
+   with AbortProof ->
+     lexbuf := !holdbuf; failwith (sprintf "error while recurseOn' %s" aStr) end   
+and recurseOn aStr = 
+   let holdout = ref !out in
+   let holdbuf = ref !lexbuf in
+   lexbuf := Lexing.from_string aStr;
+   out := open_out "/dev/null";
+   begin try 
+   process_proof "";
+   out := !holdout;
+   lexbuf := !holdbuf;
+   ()
+   with AbortProof ->
+     out := !holdout; lexbuf := !holdbuf; failwith  (sprintf "error while recurseOn %s" aStr) end
+
 
 let rec process () =
   try while true do try
@@ -754,7 +786,6 @@ let rec process () =
         interactive_or_exit ()
   done with
   | Failure "eof" -> ()
-
 
 
 (* Command line and startup *)

@@ -53,7 +53,7 @@ intros. apply inversion to H1 H2. search.
 Theorem ctxoio_of_uniq : forall G1 G2 G3 X A B,  ctxoio G1 G2 G3 -> member (of X A) G1 -> member (of X B) G1 -> A = B.
 intros. apply unique to H1 H2 H3. search.
 
-%> ctxoio_of_uniq
+% > ctxoio_of_uniq
 %induction on 1. intros. case H1. case H2.
 %case H2. case H3. search. apply member_prune_tm to H5.
 %         case H3. apply member_prune_tm to H5. apply IH to H4 H5 H6. search.
@@ -64,11 +64,24 @@ Schema ctx' := exists Z B, nabla n, (ofb (Z;n), ofi, ofb(B;n));
                (ofi, ofi, ofi).
 
 
-Theorem ctx'_inv: forall E G1 G2 G3, ctx' G1 G2 G3 -> member E G3 -> (exists Z B n, E = (of n B) /\ member (i) G2 /\ member (of n Z) G1 /\  fresh_tm_in_ty n Z  /\  fresh_tm_in_ty n B ) \/ 
-(E = (i) /\ member (i) G2 /\ member (i) G1).
+Theorem ctx'_sync: forall X A G1 G2 G3, ctx' G1 G2 G3 -> member (of X A) G3 -> (exists Z,  member (i) G2 /\ member (of X Z) G1 /\  fresh_tm_in_ty X Z /\ fresh_tm_in_ty X A).
+intros. apply sync to H1 H2. search.
+
+% induction on 1 . intros. case H1. 
+% case H2.
+% case H2. search.
+%          H5inv: apply IH to H3 H4. search.
+% case H2. H5inv: apply IH to H3 H4. search.
+
+
+
+
+
+
+Theorem ctx'_inv: forall E G1 G2 G3, ctx' G1 G2 G3 -> member E G3 -> (exists Z B n, E = (of n B) /\ member (i) G2 /\ member (of n Z) G1 /\  fresh_tm_in_ty n Z  /\  fresh_tm_in_ty n B ) \/  (E = (i) /\ member (i) G2 /\ member (i) G1).
 intros. apply inversion to H1 H2. search.
 
-%> ctx'inv
+% > ctx'inv
 %induction on 1. intros. case H1. case H2.
 %case H2. search. H5inv: apply IH to H3 H4. case H5inv. search. search.
 %case H2. search. H5inv: apply IH to H3 H4. case H5inv. search. search.
@@ -79,7 +92,7 @@ intros. apply unique to H1 H2 H3. search.
 
 
 
-%> ctx'uni
+% > ctx'uni
 % induction on 1. intros. case H1. case H2. 
 % case H2. case H3. search. apply member_prune_tm to H5. 
 %          case H3. apply member_prune_tm to H5. apply IH to H4 H5 H6. search.
@@ -90,7 +103,7 @@ Schema ctxk := exists Z B, nabla n, (ofb (Z;n), ofi, ofb(B;n));
                exists Z, nabla n, (ofb (Z;n), ofi, ofi).
 
 Theorem ctxk_inv: forall E G1 G2 G3, ctxk G1 G2 G3 -> member E G3 -> (exists Z B n, E = (of n B) /\ member (i) G2 /\ member (of n Z) G1 /\  fresh_tm_in_ty n Z  /\  fresh_tm_in_ty n B ) \/ 
-(exists Z n, E = (i) /\ member (i) G2 /\ member (of n Z) G1).
+(exists Z n, E = (i) /\ member (i) G2 /\ member (of n Z) G1 /\ fresh_tm_in_ty n Z).
 intros. apply inversion to H1 H2. search.
 
 Theorem ctxk_of_uniq : forall G1 G2 G3 X A B,  ctxk G1 G2 G3 -> member (of X A) G1 -> member (of X B) G1 -> A = B.

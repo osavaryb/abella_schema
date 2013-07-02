@@ -1,7 +1,16 @@
+(01/07/2013)
+> Sync works -> proof is quite like unique, if not matched, can skip the head case, o.w. apply I.H. and search.
+* TODO: find a way to type and add the new variables from patternMatch in the list of "fresh" variables in make_sync_stmt.
+* TODO: Should use Right.unify instead of uniteTerms for sync&unique, on the matched patterns, to make the most general terms matching all the pattern matched by the hypothesis.
+* TODO: handle general term in "Block", maybe type them right away and store term instead of uterm.
 (26/06/2013) 
-* For sync & uniq, if not cases ... , return false.
-* think about discrim 
-* think about getting induction principles from type from sig in abella ($tm &c) (read bpientka's coverage paper) 
+* For sync & uniq, if not cases ... , return false. (think about discrim )
+* think about getting induction principles from type from sig in abella ($tm &c) (read bpientka's coverage paper)
+? Seems like all the tacticals are following the pattern of 1) observing the hypothesis given 2) selecting the statement from a finite set of statement that could've been generated at the schema definition. 
+?? See if unique can be expressed as such, using a unified pattern from all matching patterns instead of a unified pattern of the two hypotehesis
+ 
+
+
 (25/06/2013) bis
  Unique is done, but there's a bit of a circularity between "safe_uni_ground" and "instOfPats". At the moment "safe_uni_ground" might say "false" for a position even if the assumption couldn't be introduiced by the block, however "n" is needed for makeUniqueTerms with his used in instOfPats...Will have to untangle this at some point - make instOfPat [pattern matching] primitive.
 
