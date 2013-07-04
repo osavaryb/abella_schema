@@ -428,7 +428,7 @@ let rec process_proof name =
      hypName
    with  _ -> 
    let (arr, bids) = get_schema schName in
-   let gi = member_of_ith t t1 in
+   let (_, gi, _) = member_of_ith t t1 in
    let invThmStr = make_inv_stmt gi schName arr bids  in
    let invPrfStr = make_inv_prf bids in
    let aStr = hypName^": assert "^invThmStr^invPrfStr in
@@ -447,7 +447,7 @@ end
      | App (t1h , t1l) ->  if ((term_to_string t1h) = "member") then t1l else failwith "Unexpected in sync: hypothesis 1 should be of form 'member A G'"
 			      | _ -> failwith  "Unexpected in sync: hypothesis 1 should be of form 'member A G'"
 			      end in
-   let gi = member_of_ith t t1 in
+   let (_,gi,_) = member_of_ith t t1 in
    let hypName = "Hsync"^schName^(string_of_int gi) in (* need to add a hash of the hypothesis *)
    let githbids = List.map (fun (a,b,c) -> (a,b, List.nth c (gi-1))) bids in (*stub*) 
    let bnames = List.map (fun (a,b,(c,d,e)) -> (c,d,e)) githbids in
@@ -460,6 +460,35 @@ end
    printf "/* %s */" aStr; flush stdout;
    recurseOn' aStr; hypName 
    | _ , _ -> failwith " unexpected in sync" end 
+  |  "unique'" ->
+(* uni.1 *)      let (h0,h1,h2) = ( try (get_hyp (List.nth args 0), 
+					 get_hyp (List.nth args 1),
+					 get_hyp (List.nth args 2))
+with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
+             begin match (h0,h1,h2) with
+	     | Pred(t,_),Pred(t1,_),Pred(t2,_) ->
+	 let (schName , gi ,te1) = (member_of_ith t t1) in
+	 let (schName', gi',te2) = (member_of_ith t t2) in
+	 (if  (gi <> gi' || schName <> schName') then failwith "Schema: membership hypothesis should come from the same projection of the context in 'unique' tactical" else ());
+		  let (arr,bids) = get_schema schName in
+		  let bids = List.map (fun (a,b,c) -> (a,b, List.nth c (gi-1))) bids in
+		  let bnames = List.map (fun (a,b,(c,d,e)) -> (c,d,e)) bids in
+		  let mts = List.map get_block_sub bnames in
+(* uni.2 *)       let varl = pairwiseEqual2 te1 te2 in
+
+(* uni.3 *)       Unify.left_unify te1 te2; 
+
+(* uni.4 *)       let ads = instOfPats te1 mts in
+(* uni.5 *)       let (groundVar, rel) = safeUniqueGrounds mts ads varl in 
+(* uni.6 TODO *)  let vvts = List.filter (fun (cmts, (b,_,_)) -> b) (List.combine mts ads) in
+                  let (pmts,pads) = List.split vvts in
+		  let (_,_,utl) = listSplit3 pmts in
+		  let utlup = List.map (fun (ut,oldid) -> rename_ids_in_uterm ((groundVar,oldid)::[(oldid,groundVar)]) ut) (List.combine utl rel) in
+		  let strl = List.map (fun ut -> uterm_to_string ut) utlup in
+failwith ("\n te1 and te2 unified as "^(term_to_string te1)^" with equal variable(s) "^(id_list_to_string varl)^", ground on "^(groundVar)^" which corresponds to "^(id_list_to_string rel)^" in "^(String.concat "; " strl )^" \n")
+		  
+	     | _ -> failwith "Schema: arguments in the wrong form for 'unique' tactical"
+	     end
    |  "unique" -> 
 		    begin match (get_hyp (List.hd args)) with
 		    | Pred (t,r) ->
@@ -474,18 +503,18 @@ end
 			      | App (t1h , t1l), App ( t2h , t2l) ->  if ((term_to_string t1h) = "member") &&((term_to_string t2h) = "member") then (t1l,t2l) else failwith "Unexpected in unique: hypothesis 1 and 2 should be of form 'member A G'"
 			      | _ -> failwith  "Unexpected in unique: hypothesis 1 and 2 should be of form 'member A G'"
 			      end in
-			    let gi = member_of_ith t t1 in
+			    let (_, gi, _) = member_of_ith t t1 in
 			    let bids = List.map (fun (a,b,c) -> (a,b, List.nth c (gi-1))) bids in (*stub*)
 			    let bnames = List.map (fun (a,b,(c,d,e)) -> (c,d,e)) bids in
 			    let mts = List.map get_block_sub bnames in
 			    (* get a canonical block, first with 1, and generate the statement from it *)
-(*			    let varl = pairwiseEqual2 (hnorm (List.hd t1l)) (hnorm (List.hd t2l)) in *)
+			    let _varl = pairwiseEqual2 (hnorm (List.hd t1l)) (hnorm (List.hd t2l)) in  
 
 			    let eql = pairwiseEqual (observe (hnorm (List.hd t1l))) (observe (hnorm (List.hd t2l)))  in
 			    (* I run this twice if it's not ground in 1...I could instead makeUnite without renaming, and then rename after having found which is ground *)
-			    let (nl,tu1,tu2) = makeUniqueTerms (List.hd t1l) (List.hd t2l) 1 in
-(*			    let (_,tu1',tu2') = uniteTerms (List.hd t1l) (List.hd t2l) [0] (List.hd varl) in
-		    printf "||Are equal:  %s for united term %s and %s ||\n" (id_list_to_string varl) (term_to_string tu1') (term_to_string tu2'); flush stdout; *)
+			    let (nl,tu1,tu2) = makeUniqueTerms (List.hd t1l) (List.hd t2l) 1 "X" in
+(*			    let (_,tu1',tu2') = uniteTerms (List.hd t1l) (List.hd t2l) [0] (List.hd varl) in *)
+(*		    printf "||Are equal:  %s for united term %s and %s ||\n" (id_list_to_string varl) (term_to_string tu1') (term_to_string tu2'); flush stdout; *)
 			    let ads' = instOfPats tu1 mts in
 			    let (ads, _ , _ ) = listSplit3 ads' in (* instOfPats tu1 mts !sign in *)
 			    let n = safe_uni_ground eql mts ads 1 in
@@ -495,7 +524,7 @@ end
 			      let _ = get_hyp hypName in
 			      hypName
 			    with _ ->
-			       let (nl,tu1,tu2) = if n = 1 then (nl,tu1,tu2) else makeUniqueTerms (List.hd t1l) (List.hd t2l) n in
+			       let (nl,tu1,tu2) = if n = 1 then (nl,tu1,tu2) else makeUniqueTerms (List.hd t1l) (List.hd t2l) n "X" in
 (*			       let ads = instOfPats tu1 mts !sign in *) (* should stay the same *)
 (*			       printf "\nmakeUnique resulted in term %s and %s\n" (term_to_string tu1) (term_to_string tu2); *)
 			       begin if (List.fold_left (fun b b1 -> b || b1) false ads) then () else failwith ("No block matches hypothesis of the given form in "^schName) end;

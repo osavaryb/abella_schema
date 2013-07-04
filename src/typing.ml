@@ -482,6 +482,7 @@ begin match idtys with
 |  [] -> []
 end
 
+(* should check that it doesn't capture variables *)
 let rec rename_ids_in_uterm sub ut = 
   match ut with
       | UCon(p, id', ty) -> if (List.mem_assoc id' sub) then UCon(p, (List.assoc id' sub), ty) else ut

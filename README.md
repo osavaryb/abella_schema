@@ -1,4 +1,20 @@
+(04/07/2013) bis^2 Workingon uni.6. switcharoo in uni.6's rename_ids_in_uterm might be unsafe.
+(04/07/2013) bis UNIQUETIEM
+-----------------------------
+uni.1 > receives hyp1 = ctxName G1 ... Gn
+           hyp2 = member (E1[A1,...,Am]) Gi
+	   hyp3 = member (E2[B1,...,Bp]) Gi
+uni.2 > see get which variables are equal and in the same position in E1 and E2.
+uni.3 > unify E1 and E2 as E
+uni.4 > see which clauses of ctxName's ith projection matches E
+uni.5 > find, from the equal variables, a variable N which is nabla bound in every clauses matched by E.
+uni.6 > unify all the matched pattern as pE
+uni.7 > making unique statement&proof corresponding to N for pE
+
+
+
 (04/07/2013) 
+* Idea: in apply tacticals, I could verify that schema is populated, in which case I would match the tacticals, otherwise use directly as name.
 * doing some test to fix unique, will probably modify the generation so that we unify all matched patterns before generating the statement, as described before. 
 > fvInTm is just select_var_refs with f = \x.true, should use it(and List.unique) in patternMatch.
 > rem_rep is List.unique

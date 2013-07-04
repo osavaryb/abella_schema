@@ -415,10 +415,10 @@ end
    
 
 (* two terms to build the uniqueness theorem, position of the ground variable *)
-let makeUniqueTerms t1 t2 ng = 
+let makeUniqueTerms t1 t2 ng v = 
    begin match observe t1, observe t2 with
    |App(th1,tt1),App(th2,tt2) -> 
-   let (nl , t1, t2) = uniteTerms (app th1 (replaceithby (ng-1) "X" tt1)) (app th1 (replaceithby (ng-1) "X" tt2)) [0] "X" in
+   let (nl , t1, t2) = uniteTerms (app th1 (replaceithby (ng-1) v tt1)) (app th1 (replaceithby (ng-1) v tt2)) [0] v in
    ((List.tl (List.rev nl)), t1,t2)
    | _ , _ -> failwith (sprintf "unexpected %s and %s in makeUniqueTerms" (term_to_string t1) (term_to_string t2))
    end
@@ -471,13 +471,13 @@ let rec pairwiseEqual2 t1 t2 =
       let varll = List.map (fun (t1,t2) -> pairwiseEqual2 t1 t2) (List.combine (t1h::t1l) (t2h::t2l)) in
       let varl = List.flatten varll in
        rem_rep varl
-      with _ -> failwith "in pairwiseEqual, ..." end
+      with Invalid_argument e -> [] end
   | Lam(idtys1, t1') , Lam(idtys2, t2') -> 
       let varl = pairwiseEqual2 t1' t2' in
       List.filter (fun id -> not (List.mem_assoc id idtys1)) varl
   | DB i, DB j -> 
       if i = j then [] else failwith "in pariwiseEqual, can't compare terms"
-  |  _ , _ -> failwith (sprintf "in pairwiseEqual, Can't compare term %s and %s. \n" (term_to_string t1) (term_to_string t2))
+  |  _ , _ -> []
   end
 
 
@@ -607,14 +607,17 @@ end
 
 (* t1 = ctx G1 ... GN *)
 (* t2 = member E Gi *)
-(* output i & Gi *)
+(* verifies that ctx is a defined schema *)
+(* output (ctx, i, E) *)
 let member_of_ith t1 t2 =
   begin match observe t1, observe t2 with
   | App (t1h,t1l), App(t2h,t2l) -> if ((term_to_string t2h) = "member") then
       let gi = term_to_string (hnorm (List.hd (List.tl t2l))) in 
-       (mem_pos gi t1l)
-  else failwith "Unexpected in inversion, second argument should be of the form 'member E G'. "
-  | _ -> failwith "Unexpected in inversion, hypothesis should be of the given form."
+      let schName = term_to_string t1h in
+      if (List.mem_assoc schName !schemas) then () else failwith ("Schema: "^schName^" is not the name of a defined schema");
+       ( schName ,(mem_pos gi t1l), List.hd t2l)
+  else failwith "Schema: hypothesis should be of the form 'member E G'. "
+  | _ -> failwith "Shema: hypothesis should be of the given form."
   end
 
 
@@ -699,6 +702,38 @@ let make_inv_prf ids =
   let i = List.length ids in
   let bsl = if i < 2 then " search. \n" else " case H5inv."^(str_repeat i " search.")^" \n" in
   "IHinv: induction on 1. intros H1inv H2inv. H3inv : case H1inv. case H2inv."^(str_repeat i (" H4inv : case H2inv. search. H5inv: apply IHinv to H3inv H4inv."^bsl))
+
+
+let rec safeUniqueGround mts ads cvar =
+begin match (mts, ads) with
+| (cmts::mts', (false,_,_)::ads') -> 
+    let (b,rel) = (safeUniqueGround mts' ads' cvar) in
+     (b, rel)
+| ((idtys1,idtys2,ut)::mts', (true,sads,_)::ads') -> 
+    let (idl,tml) = List.split sads in
+    let tmstrl = List.map term_to_string tml in
+    let sads' = List.combine tmstrl idl  in
+    begin if List.mem_assoc cvar sads' then
+      let blid = List.assoc cvar sads' in
+        if List.mem_assoc blid idtys2 then
+	   let (b,rel) = (safeUniqueGround mts' ads' cvar) in
+	    (b, blid::rel)
+	else
+	  let _ = (printf "ground fails(1) on %s, %s assoc with %s . \n" (uterm_to_string ut) cvar blid) in (false, [])
+    else
+      let _ = (printf "ground fails(2) on %s, no assoc for %s . \n" (uterm_to_string ut) cvar) in (false, [])
+    end
+| ([],[]) -> (true, [])
+|  _ -> failwith "Schema: Unexpected in safeUniqueGround"
+end
+
+let rec safeUniqueGrounds mts ads varl = 
+begin match varl with
+| cvar::varl' -> 
+    let (b,rel)  = safeUniqueGround mts ads cvar in
+    if b then (cvar, rel) else safeUniqueGrounds mts ads varl'
+| [] -> failwith "Schema: Can't ground unique theorem for given assumption"
+end
 
 
 let rec safe_uni_ground eql bls ads n = 
