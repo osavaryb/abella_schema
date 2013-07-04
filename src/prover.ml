@@ -289,7 +289,7 @@ begin match observe tm with
 |  _ -> failwith (sprintf "unexpected '%s' in fvInTm" (term_to_string tm))
 end
 
-(* TODO: return (b,sig,fv) where fv are the new free variables introduiced by the sub and sig is (id,tm) list *)
+(* TODO: return (b,sig,fv) where fv are the new free variables introduced by the sub and sig is (id,tm) list *)
 (* verify if term "tm" matches pattern "ptn", returns "(b,sig)" where "b" is the answer, and "sig" a pattern substitution for which tm = (sig) ptn  
   eids is a list of exists-bound variables in ptn *)
 let rec patternMatch tm ptn eids = 
@@ -317,8 +317,10 @@ let rec patternMatch tm ptn eids =
        (false, [], [])
  | App(th,tt), Var pv ->
    (* check if v is exists bound, then true, else [nabla bound or constant] false *)
+   (* TODO: should also check that App is not A n1 n2... *)
       if (List.mem_assoc Term.(pv.name) eids) then (true, [(Term.(pv.name), tm)], fvInTm tm) else (false,[], [])
- | Lam(idtys,tm'), Lam(pidtys,ptn') ->  patternMatch tm' ptn' eids
+ | Lam(idtys,tm'), Lam(pidtys,ptn') ->  
+      patternMatch tm' ptn' eids
  | DB i, DB j ->  if (i = j) then (true, [], []) else (false ,[], [])
  |  _ , _ -> (false, [], [])
  end
@@ -356,14 +358,14 @@ let makeDummyVars nl =
       (i::nl, Term.(var Constant v1n max_int (Ty([],"err"))), Term.(var Constant v2n max_int (Ty([],"err"))))
 
 (* make two terms with new variables Ai...Ai+n,Bi...Bi+1 leaving constants and "X" untouched *)
-let rec uniteTerms t1 t2 nl = 
+let rec uniteTerms t1 t2 nl v = 
    let (_,ctable) = !sign in
    begin match observe t1,observe t2 with
    | App (th1,tt1),App(th2,tt2) ->  
    begin if List.mem_assoc (term_to_string th1) ctable || List.mem_assoc (term_to_string th2) ctable then 
-   let (nl,th1',th2') = uniteTerms th1 th2 nl in
+   let (nl,th1',th2') = uniteTerms th1 th2 nl v in
    let (nl,tt1',tt2') = (List.fold_right (fun (t1,t2) (nl, t1l,t2l) ->  
-                             let (nl',t1',t2') =  uniteTerms t1 t2 nl in
+                             let (nl',t1',t2') =  uniteTerms t1 t2 nl v in
                                  (nl', t1'::t1l,t2'::t2l))
             (List.combine tt1 tt2) (nl,[],[])) in
    (nl, (app  th1' tt1'), (app th2' tt2'))
@@ -383,7 +385,7 @@ let rec uniteTerms t1 t2 nl =
     makeDummyVars nl
    end
    | Var v1, Var v2 ->
-   begin if (term_to_string t1 = "X") || List.mem_assoc Term.(v1.name) ctable then 
+   begin if (term_to_string t1 = v) || List.mem_assoc Term.(v1.name) ctable then 
      (nl,t1,t2)
    else
  begin if Term.(v1.tag = Nominal) then
@@ -395,12 +397,12 @@ let rec uniteTerms t1 t2 nl =
 end
  end
    | Lam (idtys1, tm1'), Lam (idtys2,tm2') -> (* this is only correct if bound variables are represented with DB *)
-       uniteTerms tm1' tm2' nl
-   | DB i, DB j -> if (i = j) then (nl, t1, t1) else failwith "Can't unify terms, bound variables are different"
+      let (nl, tu1', tu2') =  uniteTerms tm1' tm2' nl v in
+      (nl, lambda idtys1 tu1',lambda idtys2 tu2')
+   | DB i, DB j -> if (i = j) then (nl, t1, t2) else failwith "Can't unify terms, bound variables are different"
    | _ , _ ->  
  failwith (sprintf "unexpected %s and %s in uniteTerms" (term_to_string t1) (term_to_string t2)) 
 (* safe fail    makeDummyVars nl *)
-       
    end
 
 let rec replaceithby ng id tl =
@@ -416,7 +418,7 @@ end
 let makeUniqueTerms t1 t2 ng = 
    begin match observe t1, observe t2 with
    |App(th1,tt1),App(th2,tt2) -> 
-   let (nl , t1, t2) = uniteTerms (app th1 (replaceithby (ng-1) "X" tt1)) (app th1 (replaceithby (ng-1) "X" tt2)) [0] in
+   let (nl , t1, t2) = uniteTerms (app th1 (replaceithby (ng-1) "X" tt1)) (app th1 (replaceithby (ng-1) "X" tt2)) [0] "X" in
    ((List.tl (List.rev nl)), t1,t2)
    | _ , _ -> failwith (sprintf "unexpected %s and %s in makeUniqueTerms" (term_to_string t1) (term_to_string t2))
    end
@@ -450,6 +452,34 @@ begin match t1 with
     end
 | _ -> failwith "unexpected in pairwiseEqual"
 end
+
+let rec pairwiseEqual2 t1 t2 = 
+  let (_,ctable) = !sign in
+  begin match (observe t1, observe t2) with
+  | Var v1, Var v2 -> 
+      let v1n = Term.(v1.name) in
+      let v2n = Term.(v2.name) in
+      if v1n = v2n   then
+        if (List.mem_assoc v1n ctable) then
+	  []
+	else
+	  [v1n]
+      else 
+	[]
+  | App (t1h,t1l), App(t2h,t2l) -> 
+      begin try 
+      let varll = List.map (fun (t1,t2) -> pairwiseEqual2 t1 t2) (List.combine (t1h::t1l) (t2h::t2l)) in
+      let varl = List.flatten varll in
+       rem_rep varl
+      with _ -> failwith "in pairwiseEqual, ..." end
+  | Lam(idtys1, t1') , Lam(idtys2, t2') -> 
+      let varl = pairwiseEqual2 t1' t2' in
+      List.filter (fun id -> not (List.mem_assoc id idtys1)) varl
+  | DB i, DB j -> 
+      if i = j then [] else failwith "in pariwiseEqual, can't compare terms"
+  |  _ , _ -> failwith (sprintf "in pairwiseEqual, Can't compare term %s and %s. \n" (term_to_string t1) (term_to_string t2))
+  end
+
 
 
 (* Make one fresh definition for each pairs of exists, nabla bound variable *)
@@ -487,9 +517,13 @@ begin match tys with
 | ty::tys' ->
     let tystr = ty_to_string ty in
     let namename = tystr^"_name" in
-    let curName = "Define "^namename^" : "^tystr^" -> prop by \n nabla x, "^namename^" x.\n" in
-    let restOf = makeNameGeneric tys' in
-    curName^restOf
+    begin if H.mem defs_table namename then
+      makeNameGeneric tys' 
+    else
+      let curName = "Define "^namename^" : "^tystr^" -> prop by \n nabla x, "^namename^" x.\n" in
+      let restOf = makeNameGeneric tys' in
+      curName^restOf
+    end
 | [] -> ""
 end
 
@@ -566,7 +600,7 @@ end
 
 let rec all_name idtys =
 begin match idtys with
-| (id,ty)::idtys' -> ((ty_to_string ty)^"_var"^" "^id)::(all_name idtys')
+| (id,ty)::idtys' -> ((ty_to_string ty)^"_name"^" "^id)::(all_name idtys')
 | [] -> []
 end
 
@@ -588,29 +622,28 @@ let member_of_ith t1 t2 =
 
 let make_sync_clause i ((a,b,l),(it,sub, _)) = 
   let substr = List.map (fun (id,tm) -> (id, (term_to_string tm))) sub in
-  begin if it then 
-    let ( j ,cl,idtys1,idtys2, eit,nit ) = 
-      List.fold_left (fun (j,cstr,idty1,idty2, eit , nit ) -> fun c -> 
-	let ( c, d ,cbl) = get_block_sub c in
-	if (j = i) then
-	  (j,cstr, idty1, idty2, rename_ids_in_idtys substr c, rename_ids_in_idtys substr d ) 
-	else 
-	  let s = sprintf "member (%s) G%d" (uterm_to_string (rename_ids_in_uterm substr cbl)) j in
-	  let c' = List.filter (fun (id,ty) -> not (List.mem_assoc id sub)) c in
-	  let d' = List.filter (fun (id,ty) -> not (List.mem_assoc id sub)) d in (* actually none of these should match...should test *)  
-	  (j+1,s::cstr, (List.append c' idty1),(List.append d' idty2), eit, nit)) (1,[],[],[], [], []) l in
-    let (ida,tya) = List.split idtys1 in
-    let (idb,tyb) = List.split idtys2 in
-    let ida' = rem_rep ida in
-    let idb' = rem_rep idb in
-    let idtysa = List.map (fun id -> (id, List.assoc id idtys1)) ida' in
-    let idtysb = List.map (fun id -> (id, List.assoc id idtys2)) idb' in
-    let freshl = all_fresh idtysa (List.append nit idtysb)  (* all_fresh (List.append idtysa eit) (List.append idtysb nit)  *) in  (* doesn't work if e.g. B -> foo A *)
-    let ab = List.append ida' idb' in
-    if ab = [] then "("^(String.concat " /\\ " (List.append cl freshl))^")" else
-    sprintf "(exists %s, %s)" (String.concat " " ab) (String.concat " /\\ " (List.append cl freshl))
-  else
-    "" 
+  begin match it with
+  | true ->
+      let ( j ,cl,idtys1,idtys2, eit,nit ) = 
+	List.fold_left (fun (j,cstr,idty1,idty2, eit , nit ) -> fun c -> 
+	  let ( c, d ,cbl) = get_block_sub c in
+	  if (j = i) then
+	    (j+1,cstr, idty1, idty2, rename_ids_in_idtys substr c, rename_ids_in_idtys substr d)
+	  else 
+	    let s = sprintf "member (%s) G%d" (uterm_to_string (rename_ids_in_uterm substr cbl)) j in
+	    let c' = List.filter (fun (id,ty) -> not (List.mem_assoc id sub)) c in
+
+	    let d' = List.filter (fun (id,ty) -> not (List.mem_assoc id sub)) d in (* actually none of these should match...should test *)
+	    (j+1,s::cstr, (List.append c' idty1),(List.append d' idty2), eit, nit)) (1,[],[],[], [], []) l in
+      let idtysa = rem_rep_pairs idtys1 in
+      let idtysb = rem_rep_pairs idtys2 in
+      let (ida',tya) = List.split idtysa in
+      let (idb',tyb) = List.split idtysb in
+      let freshl = all_fresh idtysa (List.append nit idtysb)  (* all_fresh (List.append idtysa eit) (List.append idtysb nit)  *) in  (* doesn't work if e.g. B -> foo A *)
+      let ab = List.append ida' idb' in
+      if ab = [] then "("^(String.concat " /\\ " (List.append cl freshl))^")" else
+      sprintf "(exists %s, %s)" (String.concat " " ab) (String.concat " /\\ " (List.append cl freshl))
+  | false -> ""
   end
 
 
@@ -653,7 +686,7 @@ let make_inv_stmt i id arr ids  =
 			   (j+1,s::cstr,List.append idty1 c,List.append idty2 d)) (1,[],[],[]) l in
 		       let idtya = List.map (fun id -> (id, List.assoc id idty1)) a in
 		       let idtyb = List.map (fun id -> (id, List.assoc id idty2)) b in
-		       let freshl = all_fresh idtya idtyb in
+		       let freshl = if a = [] then all_name idtyb else all_fresh idtya idtyb in
 		       let ab = List.append a b in
 		       if ab = [] then "("^(String.concat " /\\ " (List.append cl freshl))^")" else
 		       sprintf "(exists %s, %s)" (String.concat " " (List.append a b)) (String.concat " /\\ " (List.append cl freshl))) ids in

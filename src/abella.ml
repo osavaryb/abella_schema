@@ -455,9 +455,9 @@ end
    let st = List.hd t1l in
    let ads = instOfPats st mts in
    let syncThmStr = make_sync_stmt gi schName arr bids ads st in
-   let syncPrfStr = make_sync_prf ads in (* is this right? might need ads *)
+   let syncPrfStr = make_sync_prf ads in 
    let aStr = hypName^" : assert "^syncThmStr^syncPrfStr in
-   printf "/* %s */" aStr;
+   printf "/* %s */" aStr; flush stdout;
    recurseOn' aStr; hypName 
    | _ , _ -> failwith " unexpected in sync" end 
    |  "unique" -> 
@@ -479,10 +479,13 @@ end
 			    let bnames = List.map (fun (a,b,(c,d,e)) -> (c,d,e)) bids in
 			    let mts = List.map get_block_sub bnames in
 			    (* get a canonical block, first with 1, and generate the statement from it *)
+(*			    let varl = pairwiseEqual2 (hnorm (List.hd t1l)) (hnorm (List.hd t2l)) in *)
 
 			    let eql = pairwiseEqual (observe (hnorm (List.hd t1l))) (observe (hnorm (List.hd t2l)))  in
 			    (* I run this twice if it's not ground in 1...I could instead makeUnite without renaming, and then rename after having found which is ground *)
 			    let (nl,tu1,tu2) = makeUniqueTerms (List.hd t1l) (List.hd t2l) 1 in
+(*			    let (_,tu1',tu2') = uniteTerms (List.hd t1l) (List.hd t2l) [0] (List.hd varl) in
+		    printf "||Are equal:  %s for united term %s and %s ||\n" (id_list_to_string varl) (term_to_string tu1') (term_to_string tu2'); flush stdout; *)
 			    let ads' = instOfPats tu1 mts in
 			    let (ads, _ , _ ) = listSplit3 ads' in (* instOfPats tu1 mts !sign in *)
 			    let n = safe_uni_ground eql mts ads 1 in
@@ -541,7 +544,7 @@ end
               fprintf !out "\n%!" ;
               suppress_display := true
           | Common(Quit) -> raise End_of_file
-        end ;
+      end ;
         if !interactive then flush stdout ;
     with
       | Failure "lexing: empty token" ->
@@ -645,6 +648,7 @@ let rec process () =
         | Block (id,(ids1,ids2,ut)) ->  
                check_noredef [id];
 	    let idtys = type_vars_in (uterm_to_term [] ut) (Ty( [], "o")) sign [] in
+	    let idtys = rem_rep_pairs idtys in
 	    printf ( "<| typevars in block: \n %s \n|>") (idtys_to_string idtys);
 (*	    let _ = type_uterm ~sr:!sr ~sign:!sign ~ctx:!ctx ut in *)
 	    let tys1 = List.map (fun id -> List.assoc id idtys) ids1 in

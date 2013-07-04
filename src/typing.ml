@@ -166,11 +166,13 @@ let lookup_const (_, ctable) id =
     | Not_found -> failwith ("Unknown constant: " ^ id)
 
 (* SCHEMA *)
-let rec rem_n_from_list n l =
+let rec split_n_from_list n l =
 begin match (n,l) with
-| (n, h::tl) -> rem_n_from_list (n-1) tl
-| (0, []) -> []
-|  _ -> failwith "in rem_n_from_list, coudln't remove n element" 
+| (n, h::tl) ->  
+    let (f,t) = split_n_from_list (n-1) tl in
+     (h::f, t)
+| (0, []) -> ([],[])
+|  _ -> failwith "in split_n_from_list, coudln't remove n element" 
 end
 
 
@@ -189,17 +191,20 @@ begin match observe tm with
 | App (th, tt) ->
     begin try 
       let Ty(tys,bty)  = lookup_const !sign (term_to_string th) in
-      if bty = (ty_to_string ty) then 
-      let idtysl = List.map (fun (tm,ty) -> type_vars_in tm ty sign lbound) (List.combine tt tys) in
-      List.flatten idtysl
-	else
-	failwith ("in type_vars_in, non-fully applied function "^(term_to_string tm)^". \n")
+      let n = List.length tt in
+      if n <= (List.length tys) then
+	let (tys',_) = split_n_from_list n tys in
+	let idtysl = List.map (fun (tm,ty) -> type_vars_in tm ty sign lbound) (List.combine tt tys') in
+	List.flatten idtysl
+      else
+      failwith ("in type_vars_in, term "^(term_to_string tm)^" has a function applied to too many arguments")
     with _ -> failwith ("in type_vars_in, can't type "^(term_to_string tm)^"%s. \n") end
 | Lam (idtys, t ) -> 
        let Ty(tys,bty) = ty in
        let n = List.length idtys  in
        if n >= (List.length tys) then
-	 type_vars_in t (Ty(rem_n_from_list n tys, bty)) sign (List.append idtys lbound)
+	 let (_,tys') = split_n_from_list n tys in
+	 type_vars_in t (Ty(tys', bty)) sign (List.append idtys lbound)
        else
 	 failwith ("in type_vars_in, "^(term_to_string tm)^" doesn't fit type "^(ty_to_string ty)^". \n" )
 | DB i  -> []
@@ -442,6 +447,13 @@ let rec rem_rep idl = begin match idl with
     if (List.mem id idl') then idl' else id::(rem_rep idl')
 |  [] -> []
 end
+
+let rec rem_rep_pairs idfool = begin match idfool with
+| (id,foo)::idl' -> 
+    if (List.mem_assoc id idl') then idl' else ((id,foo)::idl')
+|  [] -> []
+end
+
 
 let get_head_id tm =
   term_to_string (get_nth_id 0 tm)

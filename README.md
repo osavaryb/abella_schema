@@ -1,3 +1,34 @@
+(04/07/2013) 
+* doing some test to fix unique, will probably modify the generation so that we unify all matched patterns before generating the statement, as described before. 
+> fvInTm is just select_var_refs with f = \x.true, should use it(and List.unique) in patternMatch.
+> rem_rep is List.unique
+* TODO: move all new code in a different module
+
+
+(03/07/2013) meetup
+TODO
+1) unique
+2) rewrite bred
+3) term redev
+4) proj&inj
+
+
+MEETING
+10th regular meeting
+12th code walk
+17 meetup with dale
+
+
+REPORT
+1 or 2 pages (computer science generalist) summary of research - bilan
+RAPT report 
+
+(03/07/2013)
+* working on breduce.thm now, to test quantifiers in contexts.
+ > inversion works
+ > sync works
+ > unique need some work, pairwiseEqual assumed a constant followed by vars
+? I always use prune ctxvars, might need to deal with nominal deps.
 (02/07/2013)
 * TODO: revisit how to type the block head, maybe storing term instead of uterm. 
   > Deprecated get_ty_from_tml, using type_vars_in which take a term, its expected type, the ctx signature and a list of locally bound variables, and returns a list of free variables appearing in the term together with their type. 
