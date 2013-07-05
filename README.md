@@ -1,3 +1,8 @@
+
+(05/07/2013) 
+ * cleaned unique, which now does uni.1 to uni.5, and then an alternative uni.7 which makes the statement using the unified terms (from the hypothesis). 
+* Started rewriting the first part of breduce, fails at an apply sync ("Not_found"), rest works. Start next week cleaning up sync and see what cause the failure, in order to remove ctx2_uniform from breduce.
+	      
 (04/07/2013) bis^2 Workingon uni.6. switcharoo in uni.6's rename_ids_in_uterm might be unsafe.
 (04/07/2013) bis UNIQUETIEM
 -----------------------------

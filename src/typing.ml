@@ -423,11 +423,11 @@ let get_nth_id n tm =
       |	_ -> (List.nth ts (n-1))
       end in
        t
-  | _ -> failwith "Unexpected tm in get_nth_id"
+  | _ -> if n = 0 then tm else failwith "Unexpected tm in get_nth_id"
   end
 
 let rec mem_pos s l = begin match l with
-| h::t -> if (term_to_string h) = s then 1 else 
+| h::t -> if h = s then 1 else 
               (mem_pos s t)+1
 | [] -> failwith ("in mem_pos, "^s^" not found in list")
 end
@@ -482,11 +482,17 @@ begin match idtys with
 |  [] -> []
 end
 
-(* should check that it doesn't capture variables *)
 let rec rename_ids_in_uterm sub ut = 
   match ut with
       | UCon(p, id', ty) -> if (List.mem_assoc id' sub) then UCon(p, (List.assoc id' sub), ty) else ut
-      | ULam(p, id', ty, t) -> ULam(p,id', ty, (rename_ids_in_uterm (List.remove_assoc id' sub) t))
+      | ULam(p, id', ty, t) -> 
+	  let (ids1,ids2) = List.split sub in
+	  let bus = (List.combine ids2 ids1) in
+	  if (List.mem_assoc id' bus) then 
+	    let nid = List.assoc id' bus in
+	    ULam(p,nid, ty, (rename_ids_in_uterm ((id',nid)::sub) t))
+	  else
+	    ULam(p,id', ty, (rename_ids_in_uterm ((id',id')::sub) t))
       | UApp(p, t1, t2) -> UApp(p, (rename_ids_in_uterm sub t1), (rename_ids_in_uterm sub t2))
 
 let uterm_to_string t =

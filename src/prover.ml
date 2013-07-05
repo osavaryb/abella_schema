@@ -360,7 +360,7 @@ let makeDummyVars nl =
 (* make two terms with new variables Ai...Ai+n,Bi...Bi+1 leaving constants and "X" untouched *)
 let rec uniteTerms t1 t2 nl v = 
    let (_,ctable) = !sign in
-   begin match observe t1,observe t2 with
+   begin match observe (hnorm t1),observe (hnorm t2) with
    | App (th1,tt1),App(th2,tt2) ->  
    begin if List.mem_assoc (term_to_string th1) ctable || List.mem_assoc (term_to_string th2) ctable then 
    let (nl,th1',th2') = uniteTerms th1 th2 nl v in
@@ -455,15 +455,15 @@ end
 
 let rec pairwiseEqual2 t1 t2 = 
   let (_,ctable) = !sign in
-  begin match (observe t1, observe t2) with
+  begin match (observe (hnorm t1), observe (hnorm t2)) with
   | Var v1, Var v2 -> 
       let v1n = Term.(v1.name) in
       let v2n = Term.(v2.name) in
       if v1n = v2n   then
         if (List.mem_assoc v1n ctable) then
-	  []
+	   []
 	else
-	  [v1n]
+	   [v1n]
       else 
 	[]
   | App (t1h,t1l), App(t2h,t2l) -> 
@@ -472,12 +472,9 @@ let rec pairwiseEqual2 t1 t2 =
       let varl = List.flatten varll in
        rem_rep varl
       with Invalid_argument e -> [] end
-  | Lam(idtys1, t1') , Lam(idtys2, t2') -> 
-      let varl = pairwiseEqual2 t1' t2' in
-      List.filter (fun id -> not (List.mem_assoc id idtys1)) varl
-  | DB i, DB j -> 
-      if i = j then [] else failwith "in pariwiseEqual, can't compare terms"
-  |  _ , _ -> []
+  | Lam(idtys1, t1') , Lam(idtys2, t2') ->
+      pairwiseEqual2 t1' t2'
+ |  _ , _ ->  []
   end
 
 
@@ -612,10 +609,13 @@ end
 let member_of_ith t1 t2 =
   begin match observe t1, observe t2 with
   | App (t1h,t1l), App(t2h,t2l) -> if ((term_to_string t2h) = "member") then
-      let gi = term_to_string (hnorm (List.hd (List.tl t2l))) in 
+      let t1l' = List.map get_head_id t1l in 
+(*      let t1l' = List.map term_to_string t1l in *)
+      let gi = get_head_id (List.hd (List.tl t2l)) in 
+(*      let gi = term_to_string (List.hd (List.tl t2l)) in *)
       let schName = term_to_string t1h in
       if (List.mem_assoc schName !schemas) then () else failwith ("Schema: "^schName^" is not the name of a defined schema");
-       ( schName ,(mem_pos gi t1l), List.hd t2l)
+       ( schName ,(mem_pos gi t1l'), List.hd t2l)
   else failwith "Schema: hypothesis should be of the form 'member E G'. "
   | _ -> failwith "Shema: hypothesis should be of the given form."
   end
@@ -763,13 +763,13 @@ let rec safe_uni_ground eql bls ads n =
 
 
 (* schemaname, nabla ground, canonical block, number of exists bound variables as a list, arriety of the schema, block being uniqued *)
-let make_uni_stmt id tm1 tm2 nl arr gi =
+let make_uni_stmt id tm1 tm2 nl arr gi gv =
    let idsA = List.map (fun i -> "A"^(string_of_int i)) nl in
    let idsB = List.map (fun i -> "B"^(string_of_int i)) nl in
   let eqstrl = List.map (fun (a,b) -> a^" = "^b) (List.combine idsA idsB) in
     let ctxgl =  string_count arr "G" in
     let ctxg = String.concat " " ctxgl in
-  "forall "^ctxg^" X "^(String.concat " " (List.append idsA idsB))^" , "^id^" "^ctxg^" -> member ( "^(term_to_string tm1)^") G"^(string_of_int gi) ^" -> member ("^(term_to_string tm2)^") G"^(string_of_int gi) ^" -> "^(String.concat " /\\ " eqstrl)^" ." 
+  "forall "^ctxg^" "^(String.concat " " (List.append (gv::idsA) idsB))^" , "^id^" "^ctxg^" -> member ( "^(term_to_string tm1)^") G"^(string_of_int gi) ^" -> member ("^(term_to_string tm2)^") G"^(string_of_int gi) ^" -> "^(String.concat " /\\ " eqstrl)^" ." 
 
 
 
