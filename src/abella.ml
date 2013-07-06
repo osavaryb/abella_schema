@@ -26,6 +26,7 @@ open Extensions
 open Printf
 open Debug
 open Accumulate
+open Schema
 
 let can_read_specification = ref true
 
@@ -416,7 +417,7 @@ let rec process_proof name =
       | Induction(args, hn) -> induction ?name:hn args
       | CoInduction hn -> coinduction ?name:hn ()
    | Apply(h, args, ws, hn) -> 
-  let h = begin match h with 
+  let h = if not !(Schema.schemaExt) then h else begin match h with 
    | "inversion" ->
    begin match (get_hyp (List.hd args), get_hyp (List.hd (List.tl args))) with
    | Pred ( t, r), Pred (t1, _ ) ->

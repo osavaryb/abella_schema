@@ -74,8 +74,8 @@ intros. case H2 (keep).
     case H8. case H4. search.
     case H8. case H4.
      assert {D n1 |- path X P}.
-       apply sync to H1 H5. 
-/*       apply ctx2_uniform to H1 H5. */
+/*       apply sync to H1 H5. */
+      apply ctx2_uniform to H1 H5. 
        apply jump_D_invert to H1 H10 H3. search.
      apply IH to H1 H9 H10. search.
 
