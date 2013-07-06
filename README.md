@@ -23,14 +23,13 @@ uni.7 > making unique statement&proof corresponding to N for pE
 
 
 (04/07/2013) 
-* Idea: in apply tacticals, I could verify that schema is populated, in which case I would match the tacticals, otherwise use directly as name.
-* doing some test to fix unique, will probably modify the generation so that we unify all matched patterns before generating the statement, as described before. 
+* Doing some test to fix unique, will probably modify the generation so that we unify all matched patterns before generating the statement, as described before. 
 > fvInTm is just select_var_refs with f = \x.true, should use it(and List.unique) in patternMatch.
 > rem_rep is List.unique
 * TODO: move all new code in a different module
 
 
-(03/07/2013) meetup
+(03/07/2013) Meeting with Kaustuv
 TODO
 1) unique
 2) rewrite bred
@@ -38,15 +37,15 @@ TODO
 4) proj&inj
 
 
-MEETING
-10th regular meeting
-12th code walk
-17 meetup with dale
+NEXT MEETING
+10/07 regular meeting
+12/07 code walk
+17/07 meetup with dale
 
 
 REPORT
-1 or 2 pages (computer science generalist) summary of research - bilan
-RAPT report 
+by the end of the summer - 1 or 2 pages (computer science generalist) summary of research
+later this year - paragraph for RAPT report 
 
 (03/07/2013)
 * working on breduce.thm now, to test quantifiers in contexts.
