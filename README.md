@@ -1,4 +1,5 @@
-
+(06/07/2013) 
+* proof for sync fails when nominal variables are in the assumption, I might need to replace nominal vars by logical variables (in both uni and sync?)
 (05/07/2013) 
  * cleaned unique, which now does uni.1 to uni.5, and then an alternative uni.7 which makes the statement using the unified terms (from the hypothesis). 
 * Started rewriting the first part of breduce, fails at an apply sync ("Not_found"), rest works. Start next week cleaning up sync and see what cause the failure, in order to remove ctx2_uniform from breduce.

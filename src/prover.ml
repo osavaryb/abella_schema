@@ -294,7 +294,7 @@ end
   eids is a list of exists-bound variables in ptn *)
 let rec patternMatch tm ptn eids = 
   let (_,ctable) = !sign in
- begin match observe tm, observe ptn with
+ begin match observe (hnorm tm), observe (hnorm ptn) with
  | Var v, Var pv -> 
        begin match (List.mem_assoc (term_to_string tm) ctable, List.mem_assoc (term_to_string ptn) ctable) with
       | true, true -> if (term_to_string tm) = (term_to_string ptn) then (true,[], []) else (false,[], []) (* both are the same constant *)
@@ -658,6 +658,7 @@ let make_sync_clause i ((a,b,l),(it,sub, _)) =
 (* for ith (c,d,e), E = l(c,d,e) *)
 let make_sync_stmt i id arr ids ads tm = 
   let clstrl = List.map  (make_sync_clause i) (List.combine ids ads) in
+  List.iteri (printf "%d: Make_sync_clause  %s \n") clstrl; flush stdout;
   let clstrl = List.filter (fun s -> not (s = "")) clstrl in
     let ctxgl =  string_count arr "G" in
     let ctxg = String.concat " " ctxgl in

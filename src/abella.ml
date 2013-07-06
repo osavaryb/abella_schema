@@ -458,7 +458,7 @@ end
    let syncPrfStr = make_sync_prf ads in 
    let aStr = hypName^" : assert "^syncThmStr^syncPrfStr in
    printf "/* %s */" aStr; flush stdout;
-   recurseOn aStr; hypName 
+   recurseOn' aStr; hypName 
    | _ , _ -> failwith " unexpected in sync" end 
   |  "unique" ->
 (* uni.1 *)      let (h0,h1,h2) = ( try (get_hyp (List.nth args 0), 
