@@ -1,3 +1,45 @@
+(08/07/2013) bis 
+* future proj and inj
+PROJ
+---------------------------
+pro.1 > receives str = ctxNameD Gi1 ... Gim (for some i1 ... im between 1 and n)
+                 hyp1 = ctxName G1 ... Gn
+        for some defined schema ctxName and ctxNameD
+pro.2 > verify that, for each clause C of ctxName, (Gi1, ..., Gim) in C matches a clause in ctxNameD
+proj.3 > make statement and proof that \forall G1 ... Gn,ctxName G1 ... Gn -> ctxNameD Gi1 ... Gim
+
+
+INJ
+---------------------------
+inj.1 > receives str = ctxNameD D1 ... Dm
+                 hyp1 = ctxName G1 ... Gn (some of which might be equal to some Di)
+inj.2 > verify that for each clause in schema ctxName, there exists a clause in ctxNameD which matches (is more general) for each of Di1 ... Dip for which Dij = Gk \in G1 ... Gn
+inj.3 > make statement and proof that \forall G1 ... Gn. \exists ([D1 ... Dm] - [Di1 ... Dip]). ctxName G1 ... Gn -> ctxnameD D1 ... Dm
+
+
+
+
+(08/07/2013)
+* Idea: Make a single point of entry to extensions to Abella, which would then dispatch to extension such as schema, s.t. it's possible to delete schema.ml 
+? How to handle the parsing extension (o.w. could just have a marker for ext-abella, and dispatch it as string to the extension )
+
+INVERSIONTIEM
+-------------------------
+inv.1 > receives hyp1 = ctxName G1 ... Gn
+                 hyp2 = member E Gi
+        for defined ctxName and a variable E
+inv2 >  make inv statement & proof corresponding to the schema ctxName, for an element E at the ith projection
+
+SYNCTIEM
+-------------------------
+syn.1 > receives hyp1 = ctxName G1 ... Gn
+                 hyp2 = member E[X1,...Xm] Gi
+        for defined ctxName and some E:o
+syn.2 > see which blocks, from the ith projection of ctxName, could match E
+syn.3 > unify all the matched blocks as T
+syn.3'> use E directly as T 
+syn.4 > make sync statement & proof, asserting equality for each variables shared by the ith projection and the rest of the clause.
+
 (06/07/2013) 
 > moved all new functions to module Schema. lexer, parser, abella_types and abella are also modified by the extension to handle block,schema and tacticals.
 > Added a switch in Schema that tell if a schema was ever created by the extension, in which case the tacticals becomes active, otherwise don't catch their hypname on apply (so that we are fully backward compatible).
@@ -13,11 +55,13 @@
 uni.1 > receives hyp1 = ctxName G1 ... Gn
            hyp2 = member (E1[A1,...,Am]) Gi
 	   hyp3 = member (E2[B1,...,Bp]) Gi
-uni.2 > see get which variables are equal and in the same position in E1 and E2.
+	for defined schema ctxName
+uni.2 > see & get which variables are equal and in the same position in E1 and E2.
 uni.3 > unify E1 and E2 as E
 uni.4 > see which clauses of ctxName's ith projection matches E
 uni.5 > find, from the equal variables, a variable N which is nabla bound in every clauses matched by E.
 uni.6 > unify all the matched pattern as pE
+uni.6' > use E as pE directly
 uni.7 > making unique statement&proof corresponding to N for pE
 
 

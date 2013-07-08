@@ -347,58 +347,6 @@ let uterm_nominals_to_tyctx t =
   ids_to_fresh_tyctx (uterms_extract_if is_nominal_name [t])
 
 
-let get_nth_id n tm =
-  begin match observe (hnorm tm) with
-  | App ( t , ts ) -> 
-      let t = 
-      begin match n with
-      |	0 -> t
-      |	_ -> (List.nth ts (n-1))
-      end in
-       t
-  | _ -> if n = 0 then tm else failwith "Unexpected tm in get_nth_id"
-  end
-
-let rec mem_pos s l = begin match l with
-| h::t -> if h = s then 1 else 
-              (mem_pos s t)+1
-| [] -> failwith ("in mem_pos, "^s^" not found in list")
-end
-
-let rec string_count n s = begin match n with
-|  0 -> []
-|  n -> List.append (string_count (n-1) s) [s^(string_of_int n)]
-end
-
-
-let listSplit3 l = 
-List.fold_right (fun (a,bl,cl) (ca, cb, cc) -> (a::ca,bl::cb, cl::cc)) l ([],[],[])
-
-(* remove repeated strings from list, keeping only the last occ. *)
-let rec rem_rep idl = begin match idl with
-|  id::idl' -> 
-    if (List.mem id idl') then idl' else id::(rem_rep idl')
-|  [] -> []
-end
-
-let rec rem_rep_pairs idfool = begin match idfool with
-| (id,foo)::idl' -> 
-    if (List.mem_assoc id idl') then idl' else ((id,foo)::idl')
-|  [] -> []
-end
-
-
-let get_head_id tm =
-  term_to_string (get_nth_id 0 tm)
-(*  begin match observe (hnorm tm) with
-  | App ( t , _ ) -> 
-      (begin match observe (hnorm t) with
-      |  Var {name = op} -> op
-      |   _ -> failwith "..."
-      end)
-  | _ -> failwith "Not a pred"
-  end *)
-
 let uterm_to_term sub t =
   let rec aux t =
     match t with
@@ -408,25 +356,6 @@ let uterm_to_term sub t =
   in
     aux t
 
-let rec rename_ids_in_idtys sub idtys = 
-begin match idtys with
-|  (idh,tyh)::idtys' -> let sidtys' = rename_ids_in_idtys sub idtys' in  if
-    (List.mem_assoc idh sub) then (List.assoc idh sub, tyh)::sidtys' else (idh,tyh)::sidtys'
-|  [] -> []
-end
-
-let rec rename_ids_in_uterm sub ut = 
-  match ut with
-      | UCon(p, id', ty) -> if (List.mem_assoc id' sub) then UCon(p, (List.assoc id' sub), ty) else ut
-      | ULam(p, id', ty, t) -> 
-	  let (ids1,ids2) = List.split sub in
-	  let bus = (List.combine ids2 ids1) in
-	  if (List.mem_assoc id' bus) then 
-	    let nid = List.assoc id' bus in
-	    ULam(p,nid, ty, (rename_ids_in_uterm ((id',nid)::sub) t))
-	  else
-	    ULam(p,id', ty, (rename_ids_in_uterm ((id',id')::sub) t))
-      | UApp(p, t1, t2) -> UApp(p, (rename_ids_in_uterm sub t1), (rename_ids_in_uterm sub t2))
 
 let uterm_to_string t =
   term_to_string (uterm_to_term [] t)

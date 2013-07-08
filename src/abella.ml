@@ -419,47 +419,43 @@ let rec process_proof name =
    | Apply(h, args, ws, hn) -> 
   let h = if not !(Schema.schemaExt) then h else begin match h with 
    | "inversion" ->
-   begin match (get_hyp (List.hd args), get_hyp (List.hd (List.tl args))) with
-   | Pred ( t, r), Pred (t1, _ ) ->
-       (* t1 should be of the form "member E Gi" *)
-   let schName = get_head_id t in
-   let hypName = "Hinv"^schName in
-   begin try
-     let _ = get_hyp hypName in
-     hypName
-   with  _ -> 
-   let (arr, bids) = get_schema schName in
-   let (_, gi, _) = member_of_ith t t1 in
-   let invThmStr = make_inv_stmt gi schName arr bids  in
-   let invPrfStr = make_inv_prf bids in
-   let aStr = hypName^": assert "^invThmStr^invPrfStr in
-   recurseOn aStr;
-   hypName
-end
-   | _,_ -> failwith "unexpected in inversion" 
-   end
+(* inv.1 *) 
+       begin match (get_hyp (List.hd args), get_hyp (List.hd (List.tl args))) with
+       | Pred ( t, r), Pred (t1, _ ) ->
+	   let (schName, gi, _) = member_of_ith t t1 in
+	   let hypName = "Hinv"^schName in
+	   begin try
+	     let _ = get_hyp hypName in
+	     hypName
+	   with  _ -> 
+	     let (arr, bids) = get_schema schName in
+(* inv.2 *)  let invThmStr = make_inv_stmt gi schName arr bids  in
+	     let invPrfStr = make_inv_prf bids in
+	     let aStr = hypName^": assert "^invThmStr^invPrfStr in
+	     recursePPOn aStr;
+	     hypName
+	   end
+       | _,_ -> failwith "unexpected in inversion" 
+       end
   | "sync" -> 
+(* syn.1 *)
    begin match (get_hyp (List.hd args), get_hyp (List.hd (List.tl args))) with
    | Pred ( t, _), Pred (t1, _ ) ->
-   let schName = get_head_id t in 
+   let (schName,gi,st) = member_of_ith t t1 in
    let (arr, bids) = get_schema schName in
-   let t1l = 
-     begin match observe t1 with
-     | App (t1h , t1l) ->  if ((term_to_string t1h) = "member") then t1l else failwith "Unexpected in sync: hypothesis 1 should be of form 'member A G'"
-			      | _ -> failwith  "Unexpected in sync: hypothesis 1 should be of form 'member A G'"
-			      end in
-   let (_,gi,_) = member_of_ith t t1 in
    let hypName = "Hsync"^schName^(string_of_int gi) in (* need to add a hash of the hypothesis *)
-   let githbids = List.map (fun (a,b,c) -> (a,b, List.nth c (gi-1))) bids in (*stub*) 
+(* syn.2 *)
+   let githbids = List.map (fun (a,b,c) -> (a,b, List.nth c (gi-1))) bids in 
    let bnames = List.map (fun (a,b,(c,d,e)) -> (c,d,e)) githbids in
    let mts = List.map get_block_sub bnames in
-   let st = List.hd t1l in
    let ads = instOfPats st mts in
+(* syn.3' *)
+(* syn.4 *)
    let syncThmStr = make_sync_stmt gi schName arr bids ads st in
    let syncPrfStr = make_sync_prf ads in 
    let aStr = hypName^" : assert "^syncThmStr^syncPrfStr in
    printf "/* %s */" aStr; flush stdout;
-   recurseOn' aStr; hypName 
+   recursePPOn  aStr; hypName 
    | _ , _ -> failwith " unexpected in sync" end 
   |  "unique" ->
 (* uni.1 *)      let (h0,h1,h2) = ( try (get_hyp (List.nth args 0), 
@@ -476,39 +472,46 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
 		  let bnames = List.map (fun (a,b,(c,d,e)) -> (c,d,e)) bids in
 		  let mts = List.map get_block_sub bnames in
                   printf "%s . \n" ("unfying "^(term_to_string te1)^" and "^(term_to_string te2)); flush stdout;
-(* uni.2 *)       let varl = pairwiseEqual2 te1 te2 in
+(* uni.2 *)       let varl = pairwiseEqual te1 te2 in
 
 (* uni.3 *)       Unify.left_unify te1 te2; 
                   printf "%s %d. (%d) \n" ("term unified as "^(term_to_string te1)^" with equal vars ' "^(id_list_to_string varl)^"' as member of ") gi (List.length varl); flush stdout;
 
 (* uni.4 *)       let ads = instOfPats te1 mts in
-(* uni.5 *)       let (groundVar, rel) = safeUniqueGrounds mts ads varl in 
-                  printf "before unite term \n"; flush stdout;
-(* uni.7'*)       let (nl',tu1,tu2) = uniteTerms te1 te2 [0] groundVar in
-                  printf "after unite term \n"; flush stdout;
-                  let nl = (List.tl (List.rev nl')) in
+(* uni.5 *)       let (groundVar, rel) = safeUniqueGrounds mts ads varl in
+(*
+(* uni.6 *)      let vvts = List.filter (fun (cmts, (b,_,_)) -> b) (List.combine mts ads) in
+                  let (pmts,pads) = List.split vvts in
+
+
+		  let utlup = List.map (fun ((eb,nb,ut),oldid) -> 
+		    let gvSwap = ((groundVar,oldid)::[(oldid,groundVar)]) in
+		    ((rename_ids_in_idtys gvSwap (List.append eb nb)), (rename_ids_in_uterm gvSwap ut))) (List.combine pmts rel) in
+		  let tlup = List.map (fun (ab,ut) -> type_uterm ~sr:!sr ~sign:!sign ~ctx:[] ut) utlup in
+		  let strl = List.map term_to_string tlup in
+		  printf "|| %s || \n" (String.concat "\n" strl); *)
+(*		  let umtl = List.map (fun (eb,ut) -> 
+		    UBinding( Forall, eb, UArrow(UPred (ut,Irrelevant), UTrue))) utlup in
+		  let strl = List.map umetaterm_to_string umtl in
+		  printf "|| %s || \n" (String.concat "\n" strl);
+		  let mtl = List.map (type_umetaterm ~sr:!sr ~sign:!sign) umtl in 
+		  let tlup = List.map 
+		      (fun mt -> match mt with
+	                           | Binding( Forall, _ , Arrow( Pred ( t , _), True)) -> t 
+				   |   _ -> failwith "Schema: unexpected in uni.6"
+				     ) mtl in 
+		  List.iter (Unify.left_unify (List.hd tlup)) (List.tl tlup); 
+		  failwith ("\n te1 and te2 unified as "^(term_to_string te1)^" with equal variable(s) "^(id_list_to_string varl)^", ground on "^groundVar^" which corresponds to "^(term_to_string (List.hd tlup))^" . \n")   *)
+(* uni.6'*)
+(* uni.7 *)      let (nl,tu1,tu2) = uniteTerms te1 te2 0 groundVar in
 		  let (bads,_,_) = listSplit3 ads in
 		  let hypName = "Huni"^schName^groundVar in
 		  let uniThmStr = make_uni_stmt schName tu1 tu2 nl arr gi groundVar in
                   let uniPrfStr = make_uni_prf schName mts bads in
 		  let aStr = hypName^" : assert "^uniThmStr^uniPrfStr in
-		  recurseOn aStr; hypName 
+		  recursePPOn aStr; hypName 
 	     | _ -> failwith "Schema: arguments in the wrong form for 'unique' tactical"
-	     end
-(*
-		  failwith ("\n te1 and te2 unified as "^(term_to_string te1)^" with equal variable(s) "^(id_list_to_string varl)^", ground on "^groundVar^" which corresponds to "^(term_to_string tu1)^" . \n")  *)
-	       
-(*
-                  let vvts = List.filter (fun (cmts, (b,_,_)) -> b) (List.combine mts ads) in
-                  let (pmts,pads) = List.split vvts in
-		  let (_,_,utl) = listSplit3 pmts in
-		  let utlup = List.map (fun (ut,oldid) -> rename_ids_in_uterm ((groundVar,oldid)::[(oldid,groundVar)]) ut) (List.combine utl rel) in
-		  let strl = List.map (fun ut -> uterm_to_string ut) utlup in
-		  let tlup = List.map (uterm_to_term []) utlup in 
-   
-		  List.iter (Unify.left_unify (List.hd tlup)) (List.tl tlup); 
-*)
-
+	     end  
   |   _ -> h
   end in
      apply ?name:hn h args ws ~term_witness;
@@ -583,28 +586,19 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
       | Failure "eof" -> ()
 
 (* schema ext *)
-(* recurseOn except w/o supressing output *)
-and recurseOn' aStr = 
-   let holdbuf = ref !lexbuf in
-   lexbuf := Lexing.from_string aStr;
-   begin try 
-   process_proof "";
-   lexbuf := !holdbuf;
-   ()
-   with AbortProof ->
-     lexbuf := !holdbuf; failwith (sprintf "error while recurseOn' %s" aStr) end   
-and recurseOn aStr = 
+and recursePPOn ?quiet:(q=true) aStr = 
    let holdout = ref !out in
    let holdbuf = ref !lexbuf in
    lexbuf := Lexing.from_string aStr;
-   out := open_out "/dev/null";
+   if q then out := open_out "/dev/null";
    begin try 
    process_proof "";
    out := !holdout;
    lexbuf := !holdbuf;
    ()
    with AbortProof ->
-     out := !holdout; lexbuf := !holdbuf; failwith  (sprintf "error while recurseOn %s" aStr) end
+     out := !holdout; lexbuf := !holdbuf; failwith  (sprintf "error while recursePPOn %s" aStr)
+   |  e -> out := !holdout; lexbuf := !holdbuf; printf "Error while recursePPOn %s \n" aStr; raise e  end
 
 
 let rec process () =
@@ -657,24 +651,7 @@ let rec process () =
 	    let tys2 = List.map (fun id -> List.assoc id idtys) ids2 in
 	    let proofStr = makeBlockGeneric tys1 tys2 in
 	    add_block id (List.combine ids1 tys1,List.combine ids2 tys2,ut);
-	    if (proofStr <> "") then fprintf !out "<< \n %s >> \n" proofStr; 
-	    if (proofStr <> "") then
-	      let holdbuf = ref !lexbuf in 
-	      let holdout = ref !out in
-	      out := open_out "/dev/null";
-	      lexbuf := (Lexing.from_string proofStr);
-	      begin try 
-		process ();
-		out := !holdout;
-		lexbuf := !holdbuf; 
-	      with e ->
-		out := !holdout;
-		lexbuf := !holdbuf; 
-		raise e;
-	      end (* end try process *)
-	    else
-	      ()
-
+	      recursePOn ~quiet:false proofStr
 	| Schema (id,bids) -> 
     (* check that the name is fresh, *)
             check_noredef [id];
@@ -700,6 +677,8 @@ let rec process () =
 		else 
 	      sprintf "nabla %s , %s := %s" (String.concat " " b) d e) (List.combine bids clstrl)))^"." end in
 	    fprintf !out "%s \n" cdef; flush stdout;
+	    recursePOn cdef
+(*
 	    let holdbuf = ref !lexbuf in
 	    let holdout = ref !out in
 	    out := open_out "/dev/null";
@@ -709,7 +688,7 @@ let rec process () =
 	      out := !holdout;
 	      lexbuf := !holdbuf;
 	    with AbortProof ->
-	         out := !holdout; lexbuf := !holdbuf; () end 
+	         out := !holdout; lexbuf := !holdbuf; () end  *)
         | CoDefine(idtys, udefs) ->
             let ids = List.map fst idtys in
               check_noredef ids;
@@ -784,6 +763,18 @@ let rec process () =
         interactive_or_exit ()
   done with
   | Failure "eof" -> ()
+and recursePOn ?quiet:(q=true) aStr = 
+  if aStr = "" then () else 
+   let holdout = ref !out in
+   let holdbuf = ref !lexbuf in
+   lexbuf := Lexing.from_string aStr;
+   if q then out := open_out "/dev/null";
+   begin try 
+   process ();
+   out := !holdout;
+   lexbuf := !holdbuf;
+   ()
+   with   e -> out := !holdout; lexbuf := !holdbuf; printf "Error while recursePOn %s \n" aStr; raise e  end 
 
 
 (* Command line and startup *)
