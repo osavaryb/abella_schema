@@ -449,9 +449,16 @@ let rec process_proof name =
    let bnames = List.map (fun (a,b,(c,d,e)) -> (c,d,e)) githbids in
    let mts = List.map get_block_sub bnames in
    let ads = instOfPats st mts in
-(* syn.3' *)
+(* syn.3 *)
+   let vvts = List.filter (fun (cmts, (b,_,_)) -> b) (List.combine mts ads) in
+   let (pmts,pads) = List.split vvts in
+   let tlup = List.map (fun (eb,nb,ut) -> 
+		    let abt = List.map (fun (name,typ) -> (name,Term.(var Logic name (max_int-1) typ))) (List.append eb nb) in
+		    type_uterm ~sr:!sr ~sign:!sign ~ctx:abt ut) pmts in
+		  List.iter (Unify.left_unify (List.hd tlup)) (List.tl tlup);
+   let ads = instOfPats (List.hd tlup) mts in
 (* syn.4 *)
-   let syncThmStr = make_sync_stmt gi schName arr bids ads st in
+   let syncThmStr = make_sync_stmt gi schName arr bids ads (List.hd tlup) in
    let syncPrfStr = make_sync_prf ads in 
    let aStr = hypName^" : assert "^syncThmStr^syncPrfStr in
    printf "/* %s */" aStr; flush stdout;
@@ -479,7 +486,7 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
 
 (* uni.4 *)       let ads = instOfPats te1 mts in
 (* uni.5 *)       let (groundVar, rel) = safeUniqueGrounds mts ads varl in
-(*
+
 (* uni.6 *)      let vvts = List.filter (fun (cmts, (b,_,_)) -> b) (List.combine mts ads) in
                   let (pmts,pads) = List.split vvts in
 
@@ -487,10 +494,13 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
 		  let utlup = List.map (fun ((eb,nb,ut),oldid) -> 
 		    let gvSwap = ((groundVar,oldid)::[(oldid,groundVar)]) in
 		    ((rename_ids_in_idtys gvSwap (List.append eb nb)), (rename_ids_in_uterm gvSwap ut))) (List.combine pmts rel) in
-		  let tlup = List.map (fun (ab,ut) -> type_uterm ~sr:!sr ~sign:!sign ~ctx:[] ut) utlup in
-		  let strl = List.map term_to_string tlup in
-		  printf "|| %s || \n" (String.concat "\n" strl); *)
-(*		  let umtl = List.map (fun (eb,ut) -> 
+		  let tlup = List.map (fun (ab,ut) -> 
+		    let abt = List.map (fun (name,typ) -> (name,Term.(var Logic name (max_int-1) typ))) ab in
+		    type_uterm ~sr:!sr ~sign:!sign ~ctx:abt ut) utlup in
+		  List.iter (Unify.left_unify (List.hd tlup)) (List.tl tlup);
+(*
+failwith ("\n te1 and te2 unified as "^(term_to_string te1)^" with equal variable(s) "^(id_list_to_string varl)^", ground on "^groundVar^" which corresponds to "^(term_to_string (List.hd tlup))^" . \n")
+		  let umtl = List.map (fun (eb,ut) -> 
 		    UBinding( Forall, eb, UArrow(UPred (ut,Irrelevant), UTrue))) utlup in
 		  let strl = List.map umetaterm_to_string umtl in
 		  printf "|| %s || \n" (String.concat "\n" strl);
@@ -501,9 +511,9 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
 				   |   _ -> failwith "Schema: unexpected in uni.6"
 				     ) mtl in 
 		  List.iter (Unify.left_unify (List.hd tlup)) (List.tl tlup); 
-		  failwith ("\n te1 and te2 unified as "^(term_to_string te1)^" with equal variable(s) "^(id_list_to_string varl)^", ground on "^groundVar^" which corresponds to "^(term_to_string (List.hd tlup))^" . \n")   *)
+		    *)
 (* uni.6'*)
-(* uni.7 *)      let (nl,tu1,tu2) = uniteTerms te1 te2 0 groundVar in
+(* uni.7 *)      let (nl,tu1,tu2) = uniteTerms (List.hd tlup) (List.hd tlup) 0 groundVar in
 		  let (bads,_,_) = listSplit3 ads in
 		  let hypName = "Huni"^schName^groundVar in
 		  let uniThmStr = make_uni_stmt schName tu1 tu2 nl arr gi groundVar in

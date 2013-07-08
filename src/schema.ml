@@ -172,7 +172,6 @@ end
 
 
 
-(* Schema hammer *)
 (* SCHEMA *)
 
 (* verify that each variable appearing in the substitution is only bound to a single term *)
@@ -195,8 +194,10 @@ let rec isPSub sub = isPSub' sub []
 
 
 let rec fvInTm tm = 
+  let (_,ctable) = !sign in
 begin match observe tm with
-|  Var v ->  [ Term.(v.name)]
+|  Var v ->  
+    if (List.mem_assoc Term.(v.name) ctable) then [] else [ Term.(v.name)]
 |  App(th,tt) -> 
     let fvh = fvInTm th in
     let fvl = List.map fvInTm tt in
@@ -531,12 +532,14 @@ let make_sync_clause i ((a,b,l),(it,sub, _)) =
 (* for every (c,d,e) other than the ith, member l(c,d,e) Gjth *)
 (* for ith (c,d,e), E = l(c,d,e) *)
 let make_sync_stmt i id arr ids ads tm = 
+  let fvl = fvInTm tm in
+  let fvstr = String.concat " " fvl in
   let clstrl = List.map  (make_sync_clause i) (List.combine ids ads) in
   List.iteri (printf "%d: Make_sync_clause  %s \n") clstrl; flush stdout;
   let clstrl = List.filter (fun s -> not (s = "")) clstrl in
     let ctxgl =  string_count arr "G" in
     let ctxg = String.concat " " ctxgl in
-    sprintf "forall %s, %s -> member (%s) G%d -> %s. \n" ctxg (id^" "^ctxg) (term_to_string tm) i (String.concat " \\/ \n" clstrl)
+    sprintf "forall %s %s, %s -> member (%s) G%d -> %s. \n" fvstr ctxg (id^" "^ctxg) (term_to_string tm) i (String.concat " \\/ \n" clstrl)
 
 
 
