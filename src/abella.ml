@@ -527,9 +527,26 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
 	| Pred (t,_) -> 
 	    (begin match observe t with
 	    | App(schNameT,schGsTl) ->
-	       let schName = term_to_string schNameT in
-	       let schGs = List.map get_head_id schGsTl in
-	       failwith (sprintf "Schema: projas from %s %s to %s %s. \n" schName (String.concat " " schGs) schNameD (String.concat " " schDs))
+	       let schNameO = term_to_string schNameT in
+	       let schOs = List.map get_head_id schGsTl in
+	       (if (List.mem_assoc schNameO Prover.(!schemas)) then
+		 if (List.mem_assoc schNameD Prover.(!schemas)) then
+		   ()
+		 else failwith ("Schema: "^schNameD^" is not a declared schema.")
+	       else failwith ("Schema: "^schNameO^" is not a declared schema."));
+	       let (arrD,bidsD) = get_schema schNameD in
+	       let (arrO,bidsO) = get_schema schNameO in
+	       (if (List.length schOs) = arrO then 
+		 if (List.length schDs) = arrD then 
+		   ()
+		 else failwith (sprintf "Schema: %d arguments expected for schema %s." arrD schNameD)
+	       else failwith (sprintf "Schema: %d arguments expected for schema %s." arrO schNameO));
+	      (* TODO: check if the statement is possible (by looking at the blocks *)
+	       let hypName = "ctxProjStub" in
+	       let projThmStr =  make_proj_stmt schNameO schOs schNameD schDs in
+	       let projPrfStr =  make_proj_prf (List.length bidsO) in
+	       let aStr =  hypName^" : assert "^projThmStr^projPrfStr in
+	       recursePPOn aStr; hypName 
 	    | _ -> failwith "Schema: Unexpected in projas (1)" 
 	    end)
 	| _ -> failwith "Schema: Unexpected in projas (2)"

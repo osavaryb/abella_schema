@@ -44,4 +44,8 @@ search.
 apply IH to H2. search.
 
 
+Theorem ctxi_inj1: forall G1, ctxo G1 -> ctxi G1.
+intros. apply projas_ctxi_G1 to H1. search.
+
+
 

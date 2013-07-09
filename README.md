@@ -1,3 +1,9 @@
+(09/07/2013) bis
+> Implemented a first version of proj making the statement and the proof directly from the receives assumption and string. 
+ TODO: 
+   1) verify that the statement is actually possible
+   2) Generalize the statement when variables in schGs appears more than once.
+
 (09/07/2013)
 * idea: proj could be made w/o modifying parser. tactical would be something like "apply projas_ctxNameD_D1_G1" hyp1, where hyp is, e.g. , ctxName G1 G2. The statement would then look like
   "\forall G1 G2, ctxName G1 G2 -> (exists D1, ctxNameD D1 G1)"

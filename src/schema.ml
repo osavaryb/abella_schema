@@ -648,10 +648,20 @@ let make_uni_stmt id tm1 tm2 nl arr gi gv =
   h1^(String.concat "" h2l)
 
 
-let make_proj_stmt ctxNameO arrO ctxNameD arrD = 
- "stub: true" 
+let make_proj_stmt schNameO schOs schNameD schDs = 
+let schOproj = (String.concat " " schOs) in
+let schDproj = (String.concat " " schDs) in
+let schDnews = List.filter (fun p -> not (List.mem p schOs)) schDs in
+let exB = 
+  begin if (List.length schDnews = 0) then
+    ""
+  else
+    "exists "^schDproj^", " end in
+"forall "^schOproj^", ("^schNameO^" "^schOproj^") -> ("^exB^schNameD^" "^schDproj^").\n"
+
+
 let make_proj_prf i  = 
- "IHinv: induction on 1. H1inv: intros. H2inv: case H1inv. \n search. \n"^(str_repeat i "apply IHinv to H2inv. search. \n")
+ " IHinv: induction on 1. intros H1inv. H2inv: case H1inv. \n search. \n"^(str_repeat i "apply IHinv to H2inv. search. \n")
  
 
 
