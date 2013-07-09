@@ -1,0 +1,113 @@
+
+  -----------
+ | INVERSION |
+  -----------
+Description: Inversion states that, for a variable E of some projection of a schema, E be of the forms introduced by the clauses of the schema of the context, and, members introduced in other projections at the same time must also be present in their respective projection.
+
+High-level overview:
+inv.1 > receives hyp1 = ctxName G1 ... Gn
+                 hyp2 = member E Gi
+        for defined ctxName and a variable E
+inv.2 > See if a proof of inv was already done for that schema, for the same projection of the schema. If it is the case, return that schema name, otherwise continue.
+inv.3 >  make inv statement & proof corresponding to the schema ctxName, for an element E at the ith projection
+
+
+Statement:
+Disjunction of, for each of the clauses of the schema, 
+    Conjunction of, for every nabla and exists bound variable of the clause, fresh/name lemmas, and for each of the projections of the clauses,
+      On ith projection, E is of the form introduced by the block.
+      On any other projection, assert that a term of the form introduced by the projection of that clause is present in the right projection of the schema.
+ 
+
+Proof:
+By induction on the size of the projection of the schema. 
+  If 0, then case-analysis on the membership relation to reveals that E can't be a member of an empty Gi.
+  otherwise case-analyse the membership relation, 
+      either it corresponds to the first element in the context, close with search.
+      or it doesn't, apply I.H. on the rest of the context. If the context has many clauses, I.H. will return a disjunction, case-analyse it and close each with search, otherwise close with search.
+
+Status:
+...
+
+ -----------
+|    SYNC   |
+ -----------
+Description: Sync states that, for particular term E, member of some projection of a schema to have a certain form, it must have been introduced by one of the clauses which matches the form of E, s.t. members introduced in other projections at the same time must be present in their respective projections.
+
+High-level overview:
+
+ syn.1 > receives hyp1 = ctxName G1 ... Gn
+                  hyp2 = member E[X1,...Xm] Gi
+         for defined ctxName and some E:o
+ syn.2 > see which blocks, from the ith projection of ctxName, could match E
+ syn.3 > See if a proof of sync was already done for that schema, for a statement matching the same clauses. If it is the case, return that schema name, otherwise continue.
+ syn.4 > unify all the matched blocks as T
+ (syn.4'> use E directly as T )
+ syn.5 > make sync statement & proof, asserting equality for each variables shared by the ith projection and the rest of the clause.
+
+
+Statement:
+...
+
+Proof:
+By induction on the size of the projection of the schema. 
+  If 0, then case-analysis on the membership relation to reveals that E can't be a member of an empty Gi.
+  otherwise case-analyse the membership relation, 
+     for each clauses in the schema,
+         if the term could've been introduced by the clause, then either it's the first element, in which case search, o.w. I.H. and search
+         o.w. can't be the first element, so apply I.H. and search.
+
+Status:
+
+
+ -----------
+|   UNIQUE  |
+ -----------
+Description: Unique states that, if two members of a projection of a schema are equal on a nabla-bound variable, the other variables (both nabla and exists bound) from the relevant block(s) must also be equal.
+
+High-level overview:
+ uni.1 > receives hyp1 = ctxName G1 ... Gn
+                  hyp2 = member (E1[A1,...,Am]) Gi 
+                  hyp3 = member (E2[B1,...,Bp]) Gi
+         for defined schema ctxName
+ uni.2 > see & get which variables are equal and in the same position in E1 and E2.
+ uni.3 > unify E1 and E2 as E
+ uni.4 > see which clauses of ctxName's ith projection matches E
+ uni.5 > find, from the equal variables, a variable N which is nabla bound in every clauses matched by E. 
+ uni.6 > See if a proof of unique was already done for that schema, ground on the same variables, for a statement matching the same clauses. If it is the case, return that schema name, otherwise continue uni.
+ uni.7 > unify all the matched pattern as pE
+ ( uni.7' > use E as pE directly  )
+ uni.8 > making unique statement&proof corresponding to N for pE
+
+
+Statement:
+...
+
+Proof:
+...
+
+Status:
+
+ -----------
+|   PROJ    |
+ -----------
+Description: 
+
+High-level overview:
+ pro.1 > receives str = ctxNameD Gi1 ... Gim (for some i1 ... im between 1 and n)
+                  hyp1 = ctxName G1 ... Gn
+         for some defined schema ctxName and ctxNameD
+ pro.2 > verify that, for each clause C of ctxName, (Gi1, ..., Gim) in C matches a clause in ctxNameD
+ proj.3 > make statement and proof that \forall G1 ... Gn,ctxName G1 ... Gn -> ctxNameD Gi1 ... Gim
+
+
+Statement:
+...
+
+Proof:
+Proof goes by induction on the length of the projection of the original schema. 
+ if 0, then nil which is in both schema, close with search
+ otherwise, for every clauses in the schema, apply the I.H. to the rest of the context, and search (for the right clause in the destination schema which matches the top element).
+
+Status:
+...

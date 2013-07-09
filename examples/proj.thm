@@ -1,0 +1,47 @@
+Specification "unit".
+
+
+Block ofi ( ; ) := i.
+Block ofb (A;x) := of x A.
+Block ofc ( A ; x) := of x (foo A).
+
+Schema ctxo := exists B, nabla x, ofc (B;x).
+Schema ctxoo := exists B A, nabla x, (ofb (A;x), ofc (B;x)).
+
+
+/* this should not be generated, as it is a special case of ctx_proj2. on ctxoo G1 G1, we should see that the first projection doesn't match ctxo's projection, but that the second one does, and generate ctx_proj2. */
+Theorem ctx_proj1: forall G1, ctxoo G1 G1 -> ctxo G1.
+induction on 1. intros. case H1. 
+search.
+apply IH to H2. search.
+
+Theorem ctx_proj2: forall G1 G2, ctxoo G1 G2 -> ctxo G2.
+induction on 1. intros. case H1. 
+search.
+apply IH to H2. search.
+
+Theorem ctx_inj1: forall G1, ctxo G1 -> (exists G2, ctxoo G1 G2).
+induction on 1. intros. case H1. 
+search.
+apply IH to H2. search.
+
+Theorem ctx_inj2: forall G1, ctxo G1 -> (exists G2, ctxoo G2 G1).
+induction on 1. intros. case H1. 
+search.
+apply IH to H2. search.
+
+Theorem ctx_inj3: forall G1, ctxo G1 -> ctxoo G1 G1.
+induction on 1. intros. case H1. 
+search.
+apply IH to H2. search.
+
+Schema ctxi := ofi;
+              exists B,nabla n, ofb (B;n).
+
+Theorem ctxi_inj1: forall G1, ctxo G1 -> ctxi G1.
+induction on 1. intros. case H1. 
+search.
+apply IH to H2. search.
+
+
+
