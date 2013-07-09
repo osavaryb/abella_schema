@@ -649,15 +649,14 @@ let make_uni_stmt id tm1 tm2 nl arr gi gv =
 
 
 let make_proj_stmt schNameO schOs schNameD schDs = 
-let schOproj = (String.concat " " schOs) in
-let schDproj = (String.concat " " schDs) in
-let schDnews = List.filter (fun p -> not (List.mem p schOs)) schDs in
+let schOb = rem_rep schOs in
+let schDnews = List.filter (fun p -> not (List.mem p schOs)) (rem_rep schDs) in
 let exB = 
   begin if (List.length schDnews = 0) then
     ""
   else
-    "exists "^schDproj^", " end in
-"forall "^schOproj^", ("^schNameO^" "^schOproj^") -> ("^exB^schNameD^" "^schDproj^").\n"
+    "exists "^(String.concat " " schDnews)^", " end in
+"forall "^(String.concat " " schOb)^", ("^schNameO^" "^(String.concat " " schOs)^") -> ("^exB^schNameD^" "^(String.concat " " schDs)^").\n"
 
 
 let make_proj_prf i  = 
