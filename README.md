@@ -1,7 +1,22 @@
+(09/07/2013)
+* idea: proj could be made w/o modifying parser. tactical would be something like "apply projas_ctxNameD_D1_G1" hyp1, where hyp is, e.g. , ctxName G1 G2. The statement would then look like
+  "\forall G1 G2, ctxName G1 G2 -> (exists D1, ctxNameD D1 G1)"
+ 
+ proj would work both as proj and inj, as you could do
+  "projas_ctxName'_G1_G2" hyp1 where hyp1 = ctxName G1 to get
+  "\forall G1, ctxName G1 -> (exists G2, ctxName' G1 G2)"
+  and
+  "projas_ctxName_G1" hyp1 where hyp1 = ctxName' G1 G2 to get
+  "\forall G1 G2, ctxName' G1 G2 -> ctxName G1"
+> added "fresh/name" lemmas to the conclusion of sync.
+> naming of lemma fixed 
+ # uni name is now: "Huni"^ctxName^hash, where  gi is index of the projection at which the proof is done and hash is the ground variable of the first matched block, followed, in order, 1 for each matched blocks and 0 for the others.
+ # sync name is now: "Hsync"^ctxName^gi^hash, where gi is the projection of the schema at which the proof is done, and hash is a bitmap of matching blocks.
+ # inv name is now: "Hinv"^ctxName^gi where gi is the projection of the schema at which the proof is done.
+
+
 (08/07/2013) bis 
 * TODO: name the generated inv, sync lemma in function of the matched clauses, s.t. we can reuse them.
-  > Done. uni name is now: "Huni"^ctxName^hash, where  gi is index of the projection at which the proof is done and hash is the ground variable of the first matched block, followed, in order, 1 for each matched blocks and 0 for the others.
-          sync name is now: "Hsync"^ctxName^gi^hash, where gi is index of the projection at which the proof is done, and hash is a bitmap of matching blocks.
 * future proj and inj
 PROJ
 ---------------------------

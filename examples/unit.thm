@@ -35,11 +35,12 @@ intros. apply inversion to H1 H2. search.
 Type bar ty -> ty.
 
 Block ofc ( A ; x) := of x (bar A).
-%Block ofd := exists A, nabla x, of (bar x) A.
 
 % Block ofb2 := exists A, nabla x, of x (foo A).
  
-
+Schema ctxuo := exists A B, nabla x, (ofb (A;x), ofb(B;x)).
+Theorem ctxuo_sync: forall X C G1 G2, ctxuo G1 G2 -> member (of X (bar C)) G1 -> (exists D, member (of X D) G2).
+intros. apply sync to H1 H2. search.
 
 
 % Block ofb := exists (A:ty), nabla (x:tm), of x A.

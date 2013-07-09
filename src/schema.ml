@@ -238,7 +238,7 @@ let rec patternMatch tm ptn eids =
        (false, [], [])
  | App(th,tt), Var pv ->
    (* check if v is exists bound, then true, else [nabla bound or constant] false *)
-   (* TODO: should also check that App is not A n1 n2... *)
+   (* TODO?: should also check that App is not A n1 n2... *)
       if (List.mem_assoc Term.(pv.name) eids) then (true, [(Term.(pv.name), tm)], fvInTm tm) else (false,[], [])
  | Lam(idtys,tm'), Lam(pidtys,ptn') ->  
       patternMatch tm' ptn' eids
@@ -295,13 +295,13 @@ let rec uniteTerms t1 t2 nl v =
    end 
    | Var v1 ,App(th2,tt2) -> 
    begin if List.mem_assoc (term_to_string th2) ctable then
-   failwith (sprintf "Can't unify %s with eigenvariable %s in uniteTerms" (term_to_string t2) (Term.(v1.name))) 
+   failwith (sprintf "Can't unify %s with %s in uniteTerms" (term_to_string t2) (Term.(v1.name))) 
    else 
     makeDummyVars nl
    end
    | App (th1,tt1), Var v2 -> 
    begin if List.mem_assoc (term_to_string th1) ctable then
-   failwith (sprintf "Can't unify %s with eigenvariable %s in uniteTerms" (Term.(v2.name)) (term_to_string t1) ) 
+   failwith (sprintf "Can't unify %s with %s in uniteTerms" (Term.(v2.name)) (term_to_string t1) ) 
    else 
     makeDummyVars nl
    end
@@ -317,13 +317,12 @@ let rec uniteTerms t1 t2 nl v =
       (i , Term.(var v1.tag v1n v1.ts v1.ty), Term.(var v2.tag v2n v2.ts v2.ty)) 
 end
  end
-   | Lam (idtys1, tm1'), Lam (idtys2,tm2') -> (* this is only correct if bound variables are represented with DB *)
+   | Lam (idtys1, tm1'), Lam (idtys2,tm2') -> 
       let (nl, tu1', tu2') =  uniteTerms tm1' tm2' nl v in
       (nl, lambda idtys1 tu1',lambda idtys2 tu2')
    | DB i, DB j -> if (i = j) then (nl, t1, t2) else failwith "Can't unify terms, bound variables are different"
    | _ , _ ->  
  failwith (sprintf "unexpected %s and %s in uniteTerms" (term_to_string t1) (term_to_string t2)) 
-(* safe fail    makeDummyVars nl *)
    end
 
 let rec replaceithby ng id tl =
@@ -334,15 +333,6 @@ begin match tl,ng with
    | [],_ -> []
 end
    
-(*
-(* two terms to build the uniqueness theorem, position of the ground variable *)
-let makeUniqueTerms t1 t2 ng v = 
-   begin match observe t1, observe t2 with
-   |App(th1,tt1),App(th2,tt2) -> 
-      uniteTerms (app th1 (replaceithby (ng-1) v tt1)) (app th1 (replaceithby (ng-1) v tt2)) [0] v 
-   | _ , _ -> failwith (sprintf "unexpected %s and %s in makeUniqueTerms" (term_to_string t1) (term_to_string t2))
-   end
-*)
 
 let rec pairwiseEqual t1 t2 = 
   let (_,ctable) = !sign in
@@ -465,6 +455,10 @@ let rec one_fresh (id1,ty1) idtys2 =
  | [] -> []
   end
 
+(* idtys1:(id*ty) list
+   idtys2:(id*ty) list
+   return a str list of the assumption that, for each var id in idtys1, every id in idtys2 is fresh in it.
+*)
 let rec all_fresh idtys1 idtys2 = 
   begin match idtys1 with
   | idty1::idtys1' -> 
@@ -472,6 +466,9 @@ let rec all_fresh idtys1 idtys2 =
   | [] -> []
 end
 
+(* idtys:(id*ty) list
+   returns a str list of the name assumption for each id in idtys. 
+*)
 let rec all_name idtys =
 begin match idtys with
 | (id,ty)::idtys' -> ((ty_to_string ty)^"_name"^" "^id)::(all_name idtys')
@@ -518,7 +515,9 @@ let make_sync_clause i ((a,b,l),(it,sub, _)) =
       let idtysb = rem_rep_pairs idtys2 in
       let (ida',tya) = List.split idtysa in
       let (idb',tyb) = List.split idtysb in
-      let freshl = all_fresh idtysa (List.append nit idtysb)  (* all_fresh (List.append idtysa eit) (List.append idtysb nit)  *) in  (* doesn't work if e.g. B -> foo A, need to recomputer freeVars in the term, then type them *)
+      let eBidtyl = (List.append idtysa eit) in
+      let nBidtyl = (List.append idtysb nit) in
+      let freshl = if eBidtyl = [] then all_name nBidtyl else all_fresh eBidtyl nBidtyl in
       let ab = List.append ida' idb' in
       if ab = [] then "("^(String.concat " /\\ " (List.append cl freshl))^")" else
       sprintf "(exists %s, %s)" (String.concat " " ab) (String.concat " /\\ " (List.append cl freshl))

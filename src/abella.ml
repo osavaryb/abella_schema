@@ -457,17 +457,17 @@ let rec process_proof name =
    with  _ -> 
 (* syn.4 *)
    let vvts = List.filter (fun (cmts, (b,_,_)) -> b) (List.combine mts ads) in
+   if (List.length vvts = 0) then failwith (sprintf "Schema: in sync, no clauses of %s can introduce a formula of the form %s. \n" schName (term_to_string st));
    let (pmts,pads) = List.split vvts in
    let tlup = List.map (fun (eb,nb,ut) -> 
 		    let abt = List.map (fun (name,typ) -> (name,Term.(var Logic name (max_int-1) typ))) (List.append eb nb) in
 		    type_uterm ~sr:!sr ~sign:!sign ~ctx:abt ut) pmts in
-		  List.iter (Unify.left_unify (List.hd tlup)) (List.tl tlup);
+   List.iter (Unify.left_unify (List.hd tlup)) (List.tl tlup);
    let ads = instOfPats (List.hd tlup) mts in
 (* syn.5 *)
    let syncThmStr = make_sync_stmt gi schName arr bids ads (List.hd tlup) in
    let syncPrfStr = make_sync_prf ads in 
    let aStr = hypName^" : assert "^syncThmStr^syncPrfStr in
-   printf "/* %s */" aStr; flush stdout;
    recursePPOn  aStr; hypName end
    | _ , _ -> failwith " unexpected in sync" end 
   |  "unique" ->
@@ -588,9 +588,10 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
           interactive_or_exit ()
     done with
       | Failure "eof" -> ()
-
 (* schema ext *)
 and recursePPOn ?quiet:(q=true) aStr = 
+  if aStr = "" then () else 
+  if not q then printf "/* %s */" aStr;
    let holdout = ref !out in
    let holdbuf = ref !lexbuf in
    lexbuf := Lexing.from_string aStr;
@@ -653,7 +654,7 @@ let rec process () =
 	    let tys2 = List.map (fun id -> List.assoc id idtys) ids2 in
 	    let proofStr = makeBlockGeneric tys1 tys2 in
 	    add_block id (List.combine ids1 tys1,List.combine ids2 tys2,ut);
-	      recursePOn ~quiet:false proofStr
+	      recursePOn proofStr
 	| Schema (id,bids) -> 
     (* check that the name is fresh, *)
             check_noredef [id];
@@ -678,19 +679,7 @@ let rec process () =
 	      sprintf "%s := %s "  d e
 		else 
 	      sprintf "nabla %s , %s := %s" (String.concat " " b) d e) (List.combine bids clstrl)))^"." end in
-	    fprintf !out "%s \n" cdef; flush stdout;
 	    recursePOn cdef
-(*
-	    let holdbuf = ref !lexbuf in
-	    let holdout = ref !out in
-	    out := open_out "/dev/null";
-	    lexbuf := Lexing.from_string cdef;
-	    begin try 
-	      process ();
-	      out := !holdout;
-	      lexbuf := !holdbuf;
-	    with AbortProof ->
-	         out := !holdout; lexbuf := !holdbuf; () end  *)
         | CoDefine(idtys, udefs) ->
             let ids = List.map fst idtys in
               check_noredef ids;
@@ -767,6 +756,7 @@ let rec process () =
   | Failure "eof" -> ()
 and recursePOn ?quiet:(q=true) aStr = 
   if aStr = "" then () else 
+  if not q then printf "/* %s */" aStr;
    let holdout = ref !out in
    let holdbuf = ref !lexbuf in
    lexbuf := Lexing.from_string aStr;
