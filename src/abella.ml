@@ -423,13 +423,13 @@ let rec process_proof name =
        begin match (get_hyp (List.hd args), get_hyp (List.hd (List.tl args))) with
        | Pred ( t, r), Pred (t1, _ ) ->
 	   let (schName, gi, _) = member_of_ith t t1 in
-	   let hypName = "Hinv"^schName in
+(* inv.2 *)let hypName = "Hinv"^schName^(string_of_int gi) in
 	   begin try
 	     let _ = get_hyp hypName in
 	     hypName
 	   with  _ -> 
 	     let (arr, bids) = get_schema schName in
-(* inv.2 *)  let invThmStr = make_inv_stmt gi schName arr bids  in
+(* inv.3 *)  let invThmStr = make_inv_stmt gi schName arr bids  in
 	     let invPrfStr = make_inv_prf bids in
 	     let aStr = hypName^": assert "^invThmStr^invPrfStr in
 	     recursePPOn aStr;
@@ -443,13 +443,19 @@ let rec process_proof name =
    | Pred ( t, _), Pred (t1, _ ) ->
    let (schName,gi,st) = member_of_ith t t1 in
    let (arr, bids) = get_schema schName in
-   let hypName = "Hsync"^schName^(string_of_int gi) in (* need to add a hash of the hypothesis *)
 (* syn.2 *)
    let githbids = List.map (fun (a,b,c) -> (a,b, List.nth c (gi-1))) bids in 
    let bnames = List.map (fun (a,b,(c,d,e)) -> (c,d,e)) githbids in
    let mts = List.map get_block_sub bnames in
    let ads = instOfPats st mts in
 (* syn.3 *)
+   let adsHashl = List.map (fun (b,_,_) -> if b then "1" else "0") ads in
+   let hypName = "Hsync"^schName^(string_of_int gi)^(String.concat "" adsHashl) in
+   begin try
+     let _ = get_hyp hypName in
+     hypName
+   with  _ -> 
+(* syn.4 *)
    let vvts = List.filter (fun (cmts, (b,_,_)) -> b) (List.combine mts ads) in
    let (pmts,pads) = List.split vvts in
    let tlup = List.map (fun (eb,nb,ut) -> 
@@ -457,12 +463,12 @@ let rec process_proof name =
 		    type_uterm ~sr:!sr ~sign:!sign ~ctx:abt ut) pmts in
 		  List.iter (Unify.left_unify (List.hd tlup)) (List.tl tlup);
    let ads = instOfPats (List.hd tlup) mts in
-(* syn.4 *)
+(* syn.5 *)
    let syncThmStr = make_sync_stmt gi schName arr bids ads (List.hd tlup) in
    let syncPrfStr = make_sync_prf ads in 
    let aStr = hypName^" : assert "^syncThmStr^syncPrfStr in
    printf "/* %s */" aStr; flush stdout;
-   recursePPOn  aStr; hypName 
+   recursePPOn  aStr; hypName end
    | _ , _ -> failwith " unexpected in sync" end 
   |  "unique" ->
 (* uni.1 *)      let (h0,h1,h2) = ( try (get_hyp (List.nth args 0), 
@@ -478,16 +484,20 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
 		  let bids = List.map (fun (a,b,c) -> (a,b, List.nth c (gi-1))) bids in
 		  let bnames = List.map (fun (a,b,(c,d,e)) -> (c,d,e)) bids in
 		  let mts = List.map get_block_sub bnames in
-                  printf "%s . \n" ("unfying "^(term_to_string te1)^" and "^(term_to_string te2)); flush stdout;
+
 (* uni.2 *)       let varl = pairwiseEqual te1 te2 in
 
 (* uni.3 *)       Unify.left_unify te1 te2; 
-                  printf "%s %d. (%d) \n" ("term unified as "^(term_to_string te1)^" with equal vars ' "^(id_list_to_string varl)^"' as member of ") gi (List.length varl); flush stdout;
 
 (* uni.4 *)       let ads = instOfPats te1 mts in
 (* uni.5 *)       let (groundVar, rel) = safeUniqueGrounds mts ads varl in
-
-(* uni.6 *)      let vvts = List.filter (fun (cmts, (b,_,_)) -> b) (List.combine mts ads) in
+(* uni.6 *)       let adsHashl = List.map (fun (b,_,_) -> if b then "1" else "0") ads in
+                  let hypName = "Huni"^schName^(string_of_int gi)^(List.hd rel)^(String.concat "" adsHashl) in
+         	  begin try
+                     let _ = get_hyp hypName in
+		     hypName
+                  with  _ -> 
+(* uni.7 *)       let vvts = List.filter (fun (cmts, (b,_,_)) -> b) (List.combine mts ads) in
                   let (pmts,pads) = List.split vvts in
 
 
@@ -498,28 +508,12 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
 		    let abt = List.map (fun (name,typ) -> (name,Term.(var Logic name (max_int-1) typ))) ab in
 		    type_uterm ~sr:!sr ~sign:!sign ~ctx:abt ut) utlup in
 		  List.iter (Unify.left_unify (List.hd tlup)) (List.tl tlup);
-(*
-failwith ("\n te1 and te2 unified as "^(term_to_string te1)^" with equal variable(s) "^(id_list_to_string varl)^", ground on "^groundVar^" which corresponds to "^(term_to_string (List.hd tlup))^" . \n")
-		  let umtl = List.map (fun (eb,ut) -> 
-		    UBinding( Forall, eb, UArrow(UPred (ut,Irrelevant), UTrue))) utlup in
-		  let strl = List.map umetaterm_to_string umtl in
-		  printf "|| %s || \n" (String.concat "\n" strl);
-		  let mtl = List.map (type_umetaterm ~sr:!sr ~sign:!sign) umtl in 
-		  let tlup = List.map 
-		      (fun mt -> match mt with
-	                           | Binding( Forall, _ , Arrow( Pred ( t , _), True)) -> t 
-				   |   _ -> failwith "Schema: unexpected in uni.6"
-				     ) mtl in 
-		  List.iter (Unify.left_unify (List.hd tlup)) (List.tl tlup); 
-		    *)
-(* uni.6'*)
-(* uni.7 *)      let (nl,tu1,tu2) = uniteTerms (List.hd tlup) (List.hd tlup) 0 groundVar in
+(* uni.8 *)      let (nl,tu1,tu2) = uniteTerms (List.hd tlup) (List.hd tlup) 0 groundVar in
 		  let (bads,_,_) = listSplit3 ads in
-		  let hypName = "Huni"^schName^groundVar in
 		  let uniThmStr = make_uni_stmt schName tu1 tu2 nl arr gi groundVar in
                   let uniPrfStr = make_uni_prf schName mts bads in
 		  let aStr = hypName^" : assert "^uniThmStr^uniPrfStr in
-		  recursePPOn aStr; hypName 
+		  recursePPOn aStr; hypName end
 	     | _ -> failwith "Schema: arguments in the wrong form for 'unique' tactical"
 	     end  
   |   _ -> h
@@ -655,8 +649,6 @@ let rec process () =
                check_noredef [id];
 	    let idtys = type_vars_in (uterm_to_term [] ut) (Ty( [], "o")) sign [] in
 	    let idtys = rem_rep_pairs idtys in
-	    printf ( "<| typevars in block: \n %s \n|>") (idtys_to_string idtys);
-(*	    let _ = type_uterm ~sr:!sr ~sign:!sign ~ctx:!ctx ut in *)
 	    let tys1 = List.map (fun id -> List.assoc id idtys) ids1 in
 	    let tys2 = List.map (fun id -> List.assoc id idtys) ids2 in
 	    let proofStr = makeBlockGeneric tys1 tys2 in

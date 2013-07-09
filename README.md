@@ -1,4 +1,7 @@
 (08/07/2013) bis 
+* TODO: name the generated inv, sync lemma in function of the matched clauses, s.t. we can reuse them.
+  > Done. uni name is now: "Huni"^ctxName^hash, where  gi is index of the projection at which the proof is done and hash is the ground variable of the first matched block, followed, in order, 1 for each matched blocks and 0 for the others.
+          sync name is now: "Hsync"^ctxName^gi^hash, where gi is index of the projection at which the proof is done, and hash is a bitmap of matching blocks.
 * future proj and inj
 PROJ
 ---------------------------
@@ -28,7 +31,8 @@ INVERSIONTIEM
 inv.1 > receives hyp1 = ctxName G1 ... Gn
                  hyp2 = member E Gi
         for defined ctxName and a variable E
-inv2 >  make inv statement & proof corresponding to the schema ctxName, for an element E at the ith projection
+inv.2 > See if a proof of inv was already done for that schema, for the same projection of the schema. If it is the case, return that schema name, otherwise continue.
+inv.3 >  make inv statement & proof corresponding to the schema ctxName, for an element E at the ith projection
 
 SYNCTIEM
 -------------------------
@@ -36,9 +40,10 @@ syn.1 > receives hyp1 = ctxName G1 ... Gn
                  hyp2 = member E[X1,...Xm] Gi
         for defined ctxName and some E:o
 syn.2 > see which blocks, from the ith projection of ctxName, could match E
-syn.3 > unify all the matched blocks as T
-syn.3'> use E directly as T 
-syn.4 > make sync statement & proof, asserting equality for each variables shared by the ith projection and the rest of the clause.
+syn.3 > See if a proof of sync was already done for that schema, for a statement matching the same clauses. If it is the case, return that schema name, otherwise continue.
+syn.4 > unify all the matched blocks as T
+(syn.4'> use E directly as T )
+syn.5 > make sync statement & proof, asserting equality for each variables shared by the ith projection and the rest of the clause.
 
 (06/07/2013) 
 > moved all new functions to module Schema. lexer, parser, abella_types and abella are also modified by the extension to handle block,schema and tacticals.
@@ -46,10 +51,10 @@ syn.4 > make sync statement & proof, asserting equality for each variables share
 * proof for sync fails when nominal variables are in the assumption, I might need to replace nominal vars by logical variables (in both uni and sync?)
 
 (05/07/2013) 
-* cleaned unique, which now does uni.1 to uni.5, and then an alternative uni.7 which makes the statement using the unified terms (from the hypothesis). 
+* cleaned unique, which now does uni.1 to uni.5, and then an alternative uni.8 which makes the statement using the unified terms (from the hypothesis). 
 > Started rewriting the first part of breduce, fails at an apply sync ("Not_found"), rest works. Start next week cleaning up sync and see what cause the failure, in order to remove ctx2_uniform from breduce.
 	      
-(04/07/2013) bis^2 Workingon uni.6. switcharoo in uni.6's rename_ids_in_uterm might be unsafe.
+(04/07/2013) bis^2 Workingon uni.7. switcharoo in uni.7's rename_ids_in_uterm might be unsafe.
 (04/07/2013) bis UNIQUETIEM
 -----------------------------
 uni.1 > receives hyp1 = ctxName G1 ... Gn
@@ -59,10 +64,11 @@ uni.1 > receives hyp1 = ctxName G1 ... Gn
 uni.2 > see & get which variables are equal and in the same position in E1 and E2.
 uni.3 > unify E1 and E2 as E
 uni.4 > see which clauses of ctxName's ith projection matches E
-uni.5 > find, from the equal variables, a variable N which is nabla bound in every clauses matched by E.
-uni.6 > unify all the matched pattern as pE
-uni.6' > use E as pE directly
-uni.7 > making unique statement&proof corresponding to N for pE
+uni.5 > find, from the equal variables, a variable N which is nabla bound in every clauses matched by E. 
+uni.6 > See if a proof of unique was already done for that schema, ground on the same variables, for a statement matching the same clauses. If it is the case, return that schema name, otherwise continue uni.
+uni.7 > unify all the matched pattern as pE
+( uni.7' > use E as pE directly  )
+uni.8 > making unique statement&proof corresponding to N for pE
 
 
 
