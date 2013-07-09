@@ -430,7 +430,7 @@ let rec process_proof name =
 	   with  _ -> 
 	     let (arr, bids) = get_schema schName in
 (* inv.3 *)  let invThmStr = make_inv_stmt gi schName arr bids  in
-	     let invPrfStr = make_inv_prf bids in
+	     let invPrfStr = make_inv_prf (List.length bids) in
 	     let aStr = hypName^": assert "^invThmStr^invPrfStr in
 	     recursePPOn aStr;
 	     hypName
@@ -516,7 +516,27 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
 		  recursePPOn aStr; hypName end
 	     | _ -> failwith "Schema: arguments in the wrong form for 'unique' tactical"
 	     end  
-  |   _ -> h
+  |   _ ->
+      let hl = Str.split (Str.regexp "_") h in
+      begin if List.hd hl = "projas" then
+(* pro.1 *)  
+        ((if List.length hl < 3 then failwith "Schema: Not enough argument for projas");
+	let schNameD = List.hd (List.tl hl) in
+	let schDs = List.tl (List.tl hl) in
+	(begin match (get_hyp (List.hd args)) with 
+	| Pred (t,_) -> 
+	    (begin match observe t with
+	    | App(schNameT,schGsTl) ->
+	       let schName = term_to_string schNameT in
+	       let schGs = List.map get_head_id schGsTl in
+	       failwith (sprintf "Schema: projas from %s %s to %s %s. \n" schName (String.concat " " schGs) schNameD (String.concat " " schDs))
+	    | _ -> failwith "Schema: Unexpected in projas (1)" 
+	    end)
+	| _ -> failwith "Schema: Unexpected in projas (2)"
+	end))
+      else (* default *)
+       h
+      end
   end in
      apply ?name:hn h args ws ~term_witness;
       | Backchain(h, ws) -> backchain h ws ~term_witness

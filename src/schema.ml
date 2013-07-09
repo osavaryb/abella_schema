@@ -529,7 +529,6 @@ let make_sync_clause i ((a,b,l),(it,sub, _)) =
 (* ground on the ith projection of the context *)
 (* fresh on a b *)
 (* for every (c,d,e) other than the ith, member l(c,d,e) Gjth *)
-(* for ith (c,d,e), E = l(c,d,e) *)
 let make_sync_stmt i id arr ids ads tm = 
   let fvl = fvInTm tm in
   let fvstr = String.concat " " fvl in
@@ -575,8 +574,8 @@ let make_inv_stmt i id arr ids  =
     sprintf "forall E %s, %s -> member E G%d -> %s. \n" ctxg (id^" "^ctxg) i (String.concat " \\/ \n" clstrl)
 
 
-let make_inv_prf ids =
-  let i = List.length ids in
+(* i:int number of clause in the schema *)
+let make_inv_prf i =
   let bsl = if i < 2 then " search. \n" else " case H5inv."^(str_repeat i " search.")^" \n" in
   "IHinv: induction on 1. intros H1inv H2inv. H3inv : case H1inv. case H2inv."^(str_repeat i (" H4inv : case H2inv. search. H5inv: apply IHinv to H3inv H4inv."^bsl))
 
@@ -648,6 +647,14 @@ let make_uni_stmt id tm1 tm2 nl arr gi gv =
 ) (List.combine mts ads) in
   h1^(String.concat "" h2l)
 
+
+let make_proj_stmt ctxNameO arrO ctxNameD arrD = 
+ "stub: true" 
+let make_proj_prf i  = 
+ "IHinv: induction on 1. H1inv: intros. H2inv: case H1inv. \n search. \n"^(str_repeat i "apply IHinv to H2inv. search. \n")
  
+
+
+
 
 

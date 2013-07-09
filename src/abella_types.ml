@@ -186,9 +186,9 @@ let top_command_to_string tc =
 	sprintf "Block %s %s %s := %s" id  eS nS (uterm_to_string t)
     | Schema (id, bgids) ->
 	let bids = List.map (fun (a,b,c) -> c) bgids in
-	let bhids = List.map List.hd bids in
-	let ids =  List.map (fun (a,b,c) -> c) bhids in
-         sprintf "Schema %s := %s" id (id_list_to_string ids)
+	let bhids = List.map (List.map (fun (a,b,c) -> c)) bids in
+	let ids = List.map (String.concat ", ") bhids in
+         sprintf "Schema %s := %s" id (String.concat "; " ids)
     | TopCommon(cc) ->
         common_command_to_string cc
 

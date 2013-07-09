@@ -121,3 +121,18 @@ intros. apply unique to H1 H2 H3. search.
 Block lam (N; x) := (pi u\ bred N u => bred x u).
 
 Schema ctxlam := exists N, nabla x, lam(N;x).
+
+
+Theorem ctx_proj1: forall G1, ctxof G1 -> (exists D2 D3, ctxoio G1 D2 D3).
+induction on 1. intros. case H1. 
+search.
+apply IH to H2. search.
+
+
+Theorem ctx_proj1: forall G1, ctxof G1 -> (exists D2 D3, ctxoio G1 D2 D3).
+induction on 1. intros. case H1. 
+search.
+apply IH to H2. search.
+
+
+% intros. apply projas_ctxoio_G1_D2_D3 to H1. search. 
