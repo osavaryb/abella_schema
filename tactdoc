@@ -1,4 +1,3 @@
-
   -----------
  | INVERSION |
   -----------
@@ -11,6 +10,7 @@ inv.1 > receives hyp1 = ctxName G1 ... Gn
 inv.2 > See if a proof of inv was already done for that schema, for the same projection of the schema. If it is the case, return that schema name, otherwise continue.
 inv.3 >  make inv statement & proof corresponding to the schema ctxName, for an element E at the ith projection
 
+Naming: "Hinv"^[ name of the schema]^[ projection of the schema at which invert ]
 
 Statement:
 Disjunction of, for each of the clauses of the schema, 
@@ -26,8 +26,7 @@ By induction on the size of the projection of the schema.
       either it corresponds to the first element in the context, close with search.
       or it doesn't, apply I.H. on the rest of the context. If the context has many clauses, I.H. will return a disjunction, case-analyse it and close each with search, otherwise close with search.
 
-Status:
-...
+Known issues:
 
  -----------
 |    SYNC   |
@@ -45,6 +44,7 @@ High-level overview:
  (syn.4'> use E directly as T )
  syn.5 > make sync statement & proof, asserting equality for each variables shared by the ith projection and the rest of the clause.
 
+Naming: "Hsync"^[name of the schema]^[projection of the schema at which we sync ]^[ bitmap of matched blocks ]
 
 Statement:
 ...
@@ -57,7 +57,7 @@ By induction on the size of the projection of the schema.
          if the term could've been introduced by the clause, then either it's the first element, in which case search, o.w. I.H. and search
          o.w. can't be the first element, so apply I.H. and search.
 
-Status:
+Known issues:
 
 
  -----------
@@ -79,6 +79,7 @@ High-level overview:
  ( uni.7' > use E as pE directly  )
  uni.8 > making unique statement&proof corresponding to N for pE
 
+Naming: "Huni"^[name of the schema]^[projection of the schema at which unique is created]^[ground variable in the first matched block]^[ bitmap of matched blocks ]
 
 Statement:
 ...
@@ -86,7 +87,7 @@ Statement:
 Proof:
 ...
 
-Status:
+Known issues: 
 
  -----------
 |   PROJ    |
@@ -103,14 +104,14 @@ pro.3 > verify that, for each clause C of ctxName, (Gi1, ..., Gim) in C matches 
       b) for each created list of constraints, check that there exists a clause in the destination context which matches all of them.
 pro.4 > (rewrit ewith inj) make statement and proof that \forall G1 ... Gn,ctxName G1 ... Gn -> ctxNameD Gi1 ... Gim
 
+Naming: "Hpro"^[name of the schema of origin]^[ map of the position in the destination context for each projection of the origin schema]^[name of the destination schema]
 
 Statement:
-...
+Function to go from the origin context to the destination context. Projections of the origin context are universally quantified over, while projections of the destination context not included in the origin context are existentially quantified.
 
 Proof:
 Proof goes by induction on the length of the projection of the original schema. 
  if 0, then nil which is in both schema, close with search
  otherwise, for every clauses in the schema, apply the I.H. to the rest of the context, and search (for the right clause in the destination schema which matches the top element).
 
-Status:
-...
+Known issues: 

@@ -1,13 +1,17 @@
+(10/07/2013) bis
+* todo: cleanup of Schema, patternMatch on type terms with properly tagged variables.
+* idea: Could accept more than one hypothesis in projas, getting constraints for more than one schema for projection variables used in many hypothesis.
+* idea: I don't think we ever need to keep the names of the block, we could just inline everything as typed term in schemas.
+
 (10/07/2013) meeting with Kaustuv
 
 TODO
  0) parse projas as a diff clause in apply. (DONE)
  1) use typed terms in internal
  2) rewrite deBruijn (KC)
- 2.5) constructs/find example for proj (before the demo of the 17th)
- 3) acave's pts
+ 2.5) constructs/find example for proj (TODO before the demo of the 17th)
+ 3) acave's pts (Ugh, couple of compound blocks)
  
-* idea: Could accept more than one hypothesis in projas, getting constraints for more than one schema for projection variables used in many hypothesis.
 
 (09/07/2013) bis
 > Implemented a first version of proj making the statement and the proof directly from the receives assumption and string. 

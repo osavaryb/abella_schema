@@ -449,14 +449,14 @@ let rec process_proof name =
    let mts = List.map get_block_sub bnames in
    let ads = instOfPats st mts in
 (* syn.3 *)
-   let adsHashl = List.map (fun (b,_,_) -> if b then "1" else "0") ads in
+   let adsHashl = List.map (fun (b,_) -> if b then "1" else "0") ads in
    let hypName = "Hsync"^schName^(string_of_int gi)^(String.concat "" adsHashl) in
    begin try
      let _ = get_hyp hypName in
      (hypName, args)
    with  _ -> 
 (* syn.4 *)
-   let vvts = List.filter (fun (cmts, (b,_,_)) -> b) (List.combine mts ads) in
+   let vvts = List.filter (fun (cmts, (b,_)) -> b) (List.combine mts ads) in
    if (List.length vvts = 0) then failwith (sprintf "Schema: in sync, no clauses of %s can introduce a formula of the form %s. \n" schName (term_to_string st));
    let (pmts,pads) = List.split vvts in
    let tlup = List.map (fun (eb,nb,ut) -> 
@@ -491,13 +491,13 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
 
 (* uni.4 *)       let ads = instOfPats te1 mts in
 (* uni.5 *)       let (groundVar, rel) = safeUniqueGrounds mts ads varl in
-(* uni.6 *)       let adsHashl = List.map (fun (b,_,_) -> if b then "1" else "0") ads in
+(* uni.6 *)       let adsHashl = List.map (fun (b,_) -> if b then "1" else "0") ads in
                   let hypName = "Huni"^schName^(string_of_int gi)^(List.hd rel)^(String.concat "" adsHashl) in
          	  begin try
                      let _ = get_hyp hypName in
 		     (hypName, args)
                   with  _ -> 
-(* uni.7 *)       let vvts = List.filter (fun (cmts, (b,_,_)) -> b) (List.combine mts ads) in
+(* uni.7 *)       let vvts = List.filter (fun (cmts, (b,_)) -> b) (List.combine mts ads) in
                   let (pmts,pads) = List.split vvts in
 
 
@@ -509,7 +509,7 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
 		    type_uterm ~sr:!sr ~sign:!sign ~ctx:abt ut) utlup in
 		  List.iter (Unify.left_unify (List.hd tlup)) (List.tl tlup);
 (* uni.8 *)      let (nl,tu1,tu2) = uniteTerms (List.hd tlup) (List.hd tlup) 0 groundVar in
-		  let (bads,_,_) = listSplit3 ads in
+		  let (bads,_) = List.split ads in
 		  let uniThmStr = make_uni_stmt schName tu1 tu2 nl arr gi groundVar in
                   let uniPrfStr = make_uni_prf schName mts bads in
 		  let aStr = hypName^" : assert "^uniThmStr^uniPrfStr in
@@ -548,10 +548,10 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
 		 let _ = get_hyp hypName in
 		 (hypName, [List.hd args])
 	       with _ ->
-(* pro.3 *)    let (_,_,blsO) = listSplit3 bidsO in
+(* pro.3 *)    let (_,_,blsO) = split3 bidsO in
                let btmsO = type_clauses blsO in
 	       let clConsO = proClConst schOs btmsO in
-               let (_,_,blsD) = listSplit3 bidsD in
+               let (_,_,blsD) = split3 bidsD in
                let btmsD = type_clauses blsD in
                 checkProMatches clConsO schDs btmsD;   
 (* pro.4 *)    let projThmStr =  make_proj_stmt schNameO schOs schNameD schDs in
@@ -711,10 +711,10 @@ let rec process () =
 	      (List.map (fun (c,d,e) -> if (List.fold_left (fun r -> fun var -> r && List.mem var a) true c)  && (List.fold_left (fun r -> fun var -> r && List.mem var b) true d)  then () else failwith (sprintf "Free variable(s) in the declaration of %s" id)) l)) bids in
 (* that the arriety of the schema is the same for every clause (save the result), *)
 	    let arr = (fun (a,b,l) -> List.length l) (List.hd bids) in
-	    let _ = List.map (fun (a,b,l) -> if arr = (List.length l) then () else failwith (sprintf "All clauses should have the same arriety (%d) in the declaration of %s" arr id)) bids in
+	    let _ = List.map (fun (a,b,l) -> if arr = (List.length l) then () else failwith (sprintf "All clauses should have the same arrity (%d) in the declaration of %s" arr id)) bids in
 	    (*and that  nabla bound variables are used at most once in every block. *)
 	    let _ = List.map (fun (a,b,l) ->
-	      (List.map (fun (c,d,e) -> if d = (rem_rep d) then () else failwith (sprintf "Nabla bound variable should be used linearly in the declaration of %s" id)) l)) bids in
+	      (List.map (fun (c,d,e) -> if List.is_unique d then () else failwith (sprintf "Nabla bound variable should be used linearly in the declaration of %s" id)) l)) bids in
 	    add_schema id (arr, bids);
 	    let schTy = (str_repeat arr " olist ->")^" prop" in
 	    let blids = List.map (fun (a,b,l) -> l) bids in 

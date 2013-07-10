@@ -24,6 +24,7 @@ open Typing
 open Abella_types
 open Printf
 open Prover
+open Extensions
 
 (* Global schema environment *)
 let schemaExt = ref false 
@@ -55,7 +56,7 @@ let get_schema name =
 (* General Toolbox *)
 
 (* split l:('a ,'b,'c) list into ('a list, 'b list, 'c list) *)
-let listSplit3 l = 
+let split3 l = 
 List.fold_right (fun (a,bl,cl) (ca, cb, cc) -> (a::ca,bl::cb, cl::cc)) l ([],[],[])
 
 (* on int n and string s, returns ["s1", ..., "sn"]  *)
@@ -71,37 +72,34 @@ let rec mem_pos s l = begin match l with
 | [] -> failwith ("in mem_pos, "^s^" not found in list")
 end
 
-(* remove repeated strings from list, keeping only the last occ. *)
-let rec rem_rep idl = begin match idl with
-|  id::idl' -> 
-    if (List.mem id idl') then idl' else id::(rem_rep idl')
-|  [] -> []
+let rec split_n_from_list n l =
+begin match (n,l) with
+| (n, h::tl) ->  
+    let (f,t) = split_n_from_list (n-1) tl in
+     (h::f, t)
+| (0, []) -> ([],[])
+|  _ -> failwith "in split_n_from_list, coudln't remove n element" 
 end
 
+
+(* similar to List.unique except for keys in an assoc list *)
 let rec rem_rep_pairs idfool = begin match idfool with
 | (id,foo)::idl' -> 
     if (List.mem_assoc id idl') then idl' else ((id,foo)::idl')
 |  [] -> []
-end
+end 
+
 
 
 
 (* Schema toolbox *)
-let get_nth_id n tm =
+let get_head_id tm =
   begin match observe (hnorm tm) with
-  | App ( t , ts ) -> 
-      let t = 
-      begin match n with
-      |	0 -> t
-      |	_ -> (List.nth ts (n-1))
-      end in
-       t
-  | _ -> if n = 0 then tm else failwith "Unexpected tm in get_nth_id"
+  | App ( t , ts ) -> term_to_string t
+  | Var v -> Term.(v.name)
+  | _ -> invalid_arg "Unexpected tm in get_nth_id"
   end
 
-
-let get_head_id tm =
-  term_to_string (get_nth_id 0 tm)
 
 let rec rename_ids_in_idtys sub idtys = 
 begin match idtys with
@@ -123,16 +121,6 @@ let rec rename_ids_in_uterm sub ut =
 	    ULam(p,id', ty, (rename_ids_in_uterm ((id',id')::sub) t))
       | UApp(p, t1, t2) -> UApp(p, (rename_ids_in_uterm sub t1), (rename_ids_in_uterm sub t2))
 
-
-
-let rec split_n_from_list n l =
-begin match (n,l) with
-| (n, h::tl) ->  
-    let (f,t) = split_n_from_list (n-1) tl in
-     (h::f, t)
-| (0, []) -> ([],[])
-|  _ -> failwith "in split_n_from_list, coudln't remove n element" 
-end
 
 
 let rec type_vars_in tm ty sign lbound = 
@@ -167,7 +155,7 @@ begin match observe tm with
        else
 	 failwith ("in type_vars_in, "^(term_to_string tm)^" doesn't fit type "^(ty_to_string ty)^". \n" )
 | DB i  -> []
-|  _ -> failwith ("in type_vars_in, unhandled "^(term_to_string tm)^". \n")
+|  _ -> invalid_arg ("in type_vars_in, unhandled "^(term_to_string tm)^". \n")
 end
 
 
@@ -205,59 +193,38 @@ let rec isPSub sub = isPSub' sub []
 
 
 
-
-
-let rec fvInTm tm = 
-  let (_,ctable) = !sign in
-begin match observe tm with
-|  Var v ->  
-    if (List.mem_assoc Term.(v.name) ctable) then [] else [ Term.(v.name)]
-|  App(th,tt) -> 
-    let fvh = fvInTm th in
-    let fvl = List.map fvInTm tt in
-     rem_rep (List.append fvh (List.flatten fvl))
-| Lam (idtys, tm') -> 
-    let fv = fvInTm tm' in
-    let (ids,tys) = List.split idtys in
-    List.filter (fun id -> not (List.mem id ids)) fv
-| DB _ -> []
-|  _ -> failwith (sprintf "unexpected '%s' in fvInTm" (term_to_string tm))
-end
-
-
-(* verify if term "tm" matches pattern "ptn", returns "(b,sig,foo)" where "b" is the answer, and "sig" a pattern substitution for which tm = (sig) ptn , and foo is list of new vars (todo remove)
+(* verify if term "tm" matches pattern "ptn", returns "(b,sig,foo)" where "b" is the answer, and "sig" a pattern substitution for which tm = (sig) ptn 
   eids is a list of exists-bound variables in ptn *)
 let rec patternMatch tm ptn eids = 
   let (_,ctable) = !sign in
  begin match observe (hnorm tm), observe (hnorm ptn) with
  | Var v, Var pv -> 
        begin match (List.mem_assoc (term_to_string tm) ctable, List.mem_assoc (term_to_string ptn) ctable) with
-      | true, true -> if (term_to_string tm) = (term_to_string ptn) then (true,[], []) else (false,[], []) (* both are the same constant *)
-      | false, false -> (true, [(Term.(pv.name),tm)], [Term.(v.name)] )
-      |	 _ , _ -> (false, [], [])
+      | true, true -> if (term_to_string tm) = (term_to_string ptn) then (true,[]) else (false,[]) (* both are the same constant *)
+      | false, false -> (true, [(Term.(pv.name),tm)])
+      |	 _ , _ -> (false, [])
        end
  |  App(th,tt), App(pth, ptt) ->
-     let (bh, subh, fvh) = patternMatch th pth eids in
+     let (bh, subh) = patternMatch th pth eids in
      if bh then 
        let rl = List.map (fun (ctm,cptn) -> patternMatch ctm cptn eids) (List.combine tt ptt) in
-       let (bl, subl, fvl) = listSplit3 rl in
+       let (bl, subl) = List.split rl in
        begin if (List.fold_left (fun bt ct -> bt && ct) true bl) then
 	 let sub = List.append subh (List.flatten subl) in
-	 let fv = rem_rep (List.append fvh (List.flatten fvl)) in
 	 (* substitution *)
-	 begin if isPSub sub then (true, sub,fv) else (false, [], []) end
-       else (false, [], [])
+	 begin if isPSub sub then (true, sub) else (false, []) end
+       else (false, [])
        end
      else 
-       (false, [], [])
+       (false, [])
  | App(th,tt), Var pv ->
-   (* check if v is exists bound, then true, else [nabla bound or constant] false *)
    (* TODO?: should also check that App is not A n1 n2... *)
-      if (List.mem_assoc Term.(pv.name) eids) then (true, [(Term.(pv.name), tm)], fvInTm tm) else (false,[], [])
+   (* check if v is exists bound, then true, else [nabla bound or constant] false *)
+      if (List.mem_assoc Term.(pv.name) eids) then (true, [(Term.(pv.name), tm)]) else (false,[])
  | Lam(idtys,tm'), Lam(pidtys,ptn') ->  
       patternMatch tm' ptn' eids
- | DB i, DB j ->  if (i = j) then (true, [], []) else (false ,[], [])
- |  _ , _ -> (false, [], [])
+ | DB i, DB j ->  if (i = j) then (true, []) else (false ,[])
+ |  _ , _ -> (false, [])
  end
 
 
@@ -281,7 +248,7 @@ let rec seqIdTerm id t nl =
      let i = nl+1 in
      let vn = id^(string_of_int i) in
      (i, var v.tag vn v.ts v.ty) end
-   | _ -> failwith (sprintf "unexpected %s in seqIdTerm" (term_to_string t))
+   | _ -> invalid_arg (sprintf "unexpected %s in seqIdTerm" (term_to_string t))
    end
 
 
@@ -336,7 +303,7 @@ end
       (nl, lambda idtys1 tu1',lambda idtys2 tu2')
    | DB i, DB j -> if (i = j) then (nl, t1, t2) else failwith "Can't unify terms, bound variables are different"
    | _ , _ ->  
- failwith (sprintf "unexpected %s and %s in uniteTerms" (term_to_string t1) (term_to_string t2)) 
+ invalid_arg (sprintf "unexpected %s and %s in uniteTerms" (term_to_string t1) (term_to_string t2)) 
    end
 
 let rec replaceithby ng id tl =
@@ -365,7 +332,7 @@ let rec pairwiseEqual t1 t2 =
       begin try 
       let varll = List.map (fun (t1,t2) -> pairwiseEqual t1 t2) (List.combine (t1h::t1l) (t2h::t2l)) in
       let varl = List.flatten varll in
-       rem_rep varl
+       List.unique varl
       with Invalid_argument e -> [] end
   | Lam(idtys1, t1') , Lam(idtys2, t2') ->
       pairwiseEqual t1' t2'
@@ -403,7 +370,7 @@ let rec makeFreshGeneric tys1 tys2 =
 
 
   end
-(* assume there is no repetition in tys *)
+(* assumes there is no repetition in tys *)
 let rec makeNameGeneric tys = 
 begin match tys with
 | ty::tys' ->
@@ -422,7 +389,7 @@ end
 
 (* Make one prune lemma for each nabla bound variable *)
 (* nabla bound variables, id paired with their type *)
-(* assume there is no repetition in tys *)
+(* assumes there is no repetition in tys *)
 let rec makePruneGeneric tys =
   begin match tys with
   | ty::tysp -> 
@@ -439,8 +406,8 @@ let rec makePruneGeneric tys =
 end
 
 let rec makeBlockGeneric tys1 tys2 =
-  let tys1 = rem_rep tys1 in
-  let tys2 = rem_rep tys2 in
+  let tys1 = List.unique tys1 in
+  let tys2 = List.unique tys2 in
   let freshDefs = if tys1 = [] then makeNameGeneric tys2 else makeFreshGeneric tys1 tys2 in
   let pruneDefs = makePruneGeneric tys2 in
    freshDefs^pruneDefs
@@ -493,7 +460,7 @@ let member_of_ith t1 t2 =
       if (List.mem_assoc schName !schemas) then () else failwith ("Schema: "^schName^" is not the name of a defined schema");
        ( schName ,(mem_pos gi t1l'), List.hd t2l)
   else failwith "Schema: hypothesis should be of the form 'member E G'. "
-  | _ -> failwith "Shema: hypothesis should be of the given form."
+  | _ -> invalid_arg "Shema: hypothesis should be of the given form."
   end
 
 
@@ -522,7 +489,7 @@ let rec proClConst ids cls =
       begin try 
 	let clConst = unifyClConst idtts in
 	clConst::res
-      with e ->  failwith "Schema: in proClConst, failed to unify projection constraints. \n" 
+      with _ ->  failwith "Schema: in proClConst, failed to unify projection constraints. \n" 
       end 	
   | [] -> []
   end
@@ -549,7 +516,7 @@ begin match idtms with
       let tm' = List.assoc id constl in
       let evars = find_vars Logic [tm] in
       let eids = List.map (fun v -> (Term.(v.name),Term.(v.ty))) evars in
-      let (b,_,_) = patternMatch tm' tm eids in
+      let (b,_) = patternMatch tm' tm eids in
       if b then
 	clMatchesConst constl idtms'
       else
@@ -579,7 +546,7 @@ let rec checkProMatches clConst ids cltms =
   end
 
 
-let make_sync_clause i ((a,b,l),(it,sub, _)) = 
+let make_sync_clause i ((a,b,l),(it,sub)) = 
   let substr = List.map (fun (id,tm) -> (id, (term_to_string tm))) sub in
   begin match it with
   | true ->
@@ -613,7 +580,8 @@ let make_sync_clause i ((a,b,l),(it,sub, _)) =
 (* fresh on a b *)
 (* for every (c,d,e) other than the ith, member l(c,d,e) Gjth *)
 let make_sync_stmt i id arr ids ads tm = 
-  let fvl = fvInTm tm in
+  let fvvl = find_vars Logic [tm] in (* might need to also add Nominal vars here *)
+  let fvl = List.map (fun v -> Term.(v.name)) fvvl in
   let fvstr = String.concat " " fvl in
   let clstrl = List.map  (make_sync_clause i) (List.combine ids ads) in
   List.iteri (printf "%d: Make_sync_clause  %s \n") clstrl; flush stdout;
@@ -626,7 +594,7 @@ let make_sync_stmt i id arr ids ads tm =
 
 
 let make_sync_prf ads = 
-let clstrl = List.map (fun (b,_,_) -> if b then "H4inv: case H2inv. search. apply IHinv to H3inv H4inv. search." else "H4inv: case H2inv. apply IHinv to H3inv H4inv. search.") ads in
+let clstrl = List.map (fun (b,_) -> if b then "H4inv: case H2inv. search. apply IHinv to H3inv H4inv. search." else "H4inv: case H2inv. apply IHinv to H3inv H4inv. search.") ads in
  "IHinv: induction on 1. intros H1inv H2inv. H3inv: case H1inv. H4inv: case H2inv.\n"^(String.concat "\n" clstrl)
 
 
@@ -665,10 +633,10 @@ let make_inv_prf i =
 
 let rec safeUniqueGround mts ads cvar =
 begin match (mts, ads) with
-| (cmts::mts', (false,_,_)::ads') -> 
+| (cmts::mts', (false,_)::ads') -> 
     let (b,rel) = (safeUniqueGround mts' ads' cvar) in
      (b, rel)
-| ((idtys1,idtys2,ut)::mts', (true,sads,_)::ads') -> 
+| ((idtys1,idtys2,ut)::mts', (true,sads)::ads') -> 
     let (idl,tml) = List.split sads in
     let tmstrl = List.map term_to_string tml in
     let sads' = List.combine tmstrl idl  in
@@ -683,7 +651,7 @@ begin match (mts, ads) with
       let _ = (printf "ground fails(2) on %s, no assoc for %s . \n" (uterm_to_string ut) cvar) in (false, [])
     end
 | ([],[]) -> (true, [])
-|  _ -> failwith "Schema: Unexpected in safeUniqueGround"
+|  _ -> invalid_arg "Schema: Unexpected in safeUniqueGround"
 end
 
 (* mts:block list for the right projection of the schema
@@ -732,10 +700,10 @@ let make_uni_stmt id tm1 tm2 nl arr gi gv =
 
 
 let make_proj_stmt schNameO schOs schNameD schDs = 
-let schOb = rem_rep schOs in
-let schDnews = List.filter (fun p -> not (List.mem p schOs)) (rem_rep schDs) in
+let schOb = List.unique schOs in
+let schDnews = List.filter (fun p -> not (List.mem p schOs)) (List.unique schDs) in
 let exB = 
-  begin if (List.length schDnews = 0) then
+  begin if schDnews = [] then
     ""
   else
     "exists "^(String.concat " " schDnews)^", " end in
