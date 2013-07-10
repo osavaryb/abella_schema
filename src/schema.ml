@@ -137,7 +137,7 @@ let rec rename_ids_in_uterm sub ut =
 
 
 
-let rec type_vars_in tm ty sign lbound = 
+let rec type_vars_in tm ty sign =
 begin match observe tm with 
 | Var v -> let vn = Term.(v.name) in
          begin try 
@@ -147,7 +147,7 @@ begin match observe tm with
 	   else
 	     []
          with _ -> 
-	   if List.mem_assoc vn lbound then [] else [(Term.(v.name), ty) ]
+            [(Term.(v.name), ty) ]
 	 end
 | App (th, tt) ->
     begin try 
@@ -155,7 +155,7 @@ begin match observe tm with
       let n = List.length tt in
       if n <= (List.length tys) then
 	let (tys',_) = split_n_from_list n tys in
-	let idtysl = List.map (fun (tm,ty) -> type_vars_in tm ty sign lbound) (List.combine tt tys') in
+	let idtysl = List.map (fun (tm,ty) -> type_vars_in tm ty sign) (List.combine tt tys') in
 	List.flatten idtysl
       else
       failwith ("in type_vars_in, term "^(term_to_string tm)^" has a function applied to too many arguments")
@@ -165,7 +165,7 @@ begin match observe tm with
        let n = List.length idtys  in
        if n >= (List.length tys) then
 	 let (_,tys') = split_n_from_list n tys in
-	 type_vars_in t (Ty(tys', bty)) sign (List.append idtys lbound)
+	 type_vars_in t (Ty(tys', bty)) sign 
        else
 	 failwith ("in type_vars_in, "^(term_to_string tm)^" doesn't fit type "^(ty_to_string ty)^". \n" )
 | DB i  -> []

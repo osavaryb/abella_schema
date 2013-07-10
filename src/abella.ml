@@ -457,7 +457,7 @@ let rec process_proof name =
    with  _ -> 
 (* syn.4 *)
    let vvts = List.filter (fun (cmts, (b,_)) -> b) (List.combine mts ads) in
-   if (List.length vvts = 0) then failwith (sprintf "Schema: in sync, no clauses of %s can introduce a formula of the form %s. \n" schName (term_to_string st));
+   if vvts = [] then failwith (sprintf "Schema: in sync, no clauses of %s can introduce a formula of the form %s. \n" schName (term_to_string st));
    let (pmts,pads) = List.split vvts in
    let tlup = List.map (fun (eb,nb,ut) -> 
 		    let abt = List.map (fun (name,typ) -> (name,Term.(var Logic name (max_int-1) typ))) (List.append eb nb) in
@@ -696,7 +696,7 @@ let rec process () =
                 add_defs ids Inductive defs
         | Block (id,(ids1,ids2,ut)) ->  
                check_noredef [id];
-	    let idtys = type_vars_in (uterm_to_term [] ut) (Ty( [], "o")) sign [] in
+	    let idtys = type_vars_in (uterm_to_term [] ut) (Ty( [], "o")) sign in
 	    let idtys = rem_rep_pairs idtys in
 	    let tys1 = List.map (fun id -> List.assoc id idtys) ids1 in
 	    let tys2 = List.map (fun id -> List.assoc id idtys) ids2 in
