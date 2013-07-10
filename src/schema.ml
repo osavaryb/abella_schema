@@ -171,6 +171,20 @@ begin match observe tm with
 end
 
 
+(* get block and substitute variables names in it *)
+let get_block_sub (idsa,idsb,bid) =
+ let (idtys1,idtys2,utm) = get_block bid in
+ begin if (List.length idtys1 <> List.length idsa)||(List.length idtys2 <> List.length idsb) then
+    failwith (sprintf "Wrong number of arguments passed to block %s" bid) 
+ else
+   let (ids1,tys1) = List.split idtys1 in
+   let (ids2,tys2) = List.split idtys2 in
+   let utm' = rename_ids_in_uterm (List.append (List.combine ids1 idsa) (List.combine ids2 idsb)) utm in
+   ((List.combine idsa tys1),(List.combine idsb tys2), utm')
+ end 
+
+
+
 
 (* SCHEMA *)
 
@@ -211,7 +225,7 @@ begin match observe tm with
 end
 
 
-(* verify if term "tm" matches pattern "ptn", returns "(b,sig)" where "b" is the answer, and "sig" a pattern substitution for which tm = (sig) ptn  
+(* verify if term "tm" matches pattern "ptn", returns "(b,sig,foo)" where "b" is the answer, and "sig" a pattern substitution for which tm = (sig) ptn , and foo is list of new vars (todo remove)
   eids is a list of exists-bound variables in ptn *)
 let rec patternMatch tm ptn eids = 
   let (_,ctable) = !sign in
@@ -432,17 +446,6 @@ let rec makeBlockGeneric tys1 tys2 =
    freshDefs^pruneDefs
 
 
-(* get block and substitute variables names in it *)
-let get_block_sub (idsa,idsb,bid) =
- let (idtys1,idtys2,utm) = get_block bid in
- begin if (List.length idtys1 <> List.length idsa)||(List.length idtys2 <> List.length idsb) then
-    failwith (sprintf "Wrong number of arguments passed to block %s" bid) 
- else
-   let (ids1,tys1) = List.split idtys1 in
-   let (ids2,tys2) = List.split idtys2 in
-   let utm' = rename_ids_in_uterm (List.append (List.combine ids1 idsa) (List.combine ids2 idsb)) utm in
-   ((List.combine idsa tys1),(List.combine idsb tys2), utm')
- end 
 
 
 
@@ -494,6 +497,85 @@ let member_of_ith t1 t2 =
   end
 
 
+
+let rec unifyClConst idtm =
+  begin match idtm with
+  | (id, tm)::idtm' -> 
+      let res = unifyClConst idtm' in
+      if List.mem_assoc id res then
+	let tm' = List.assoc id res in
+(* 	printf "in unify clConst, %s is unification of %s and %s. \n" id (term_to_string tm) (term_to_string tm'); flush stdout; *)
+	 Unify.left_unify tm tm';
+	res
+      else
+	(id, tm)::res
+  | [] -> [] 
+  end
+
+(* ? if I type the blocks separately, will the nabla variables still unify? *)
+let rec proClConst ids cls =
+  begin match cls with
+  | (tts)::cls' -> 
+      let res = proClConst ids cls' in
+      let idtts = List.combine ids tts in
+      begin try 
+	let clConst = unifyClConst idtts in
+	clConst::res
+      with _ -> failwith "Schema: in proClConst, failed to unify projection constraints. \n" 
+      end 	
+  | [] -> []
+  end
+
+
+let rec type_clauses bids = 
+begin match bids with
+| (bls)::cls' ->
+      let res = type_clauses cls' in
+      let uts = List.map get_block_sub bls in
+      let tts = List.map (fun (eb,nb,ut) -> 
+	    let nbt = List.map (fun (name,typ) -> (name,Term.(var Nominal name max_int typ))) nb in
+	    let ebt = List.map (fun (name,typ) -> (name,Term.(var Logic name (max_int-1) typ))) eb in
+	    type_uterm ~sr:!sr ~sign:!sign ~ctx:(List.append nbt ebt) ut) uts in
+      tts::res
+| [] -> []
+end
+
+
+let rec clMatchesConst constl idtms =
+begin match idtms with
+| (id,tm)::idtms' ->
+    if (List.mem_assoc id constl) then
+      let tm' = List.assoc id constl in
+      let evars = find_vars Logic [tm] in
+      let eids = List.map (fun v -> (Term.(v.name),Term.(v.ty))) evars in
+      let (b,_,_) = patternMatch tm' tm eids in
+      if b then
+	clMatchesConst constl idtms'
+      else
+	failwith "cl doesn't match the given constL"
+    else
+      clMatchesConst constl idtms'
+| [] -> ()
+end
+
+let rec findMatchingCls constl ids cltms = 
+  begin match cltms with
+  | tms::cltms' -> 
+      let idtms = List.combine ids tms in
+      begin try 
+	clMatchesConst constl idtms 
+      with _ ->  findMatchingCls constl ids cltms' end
+  | [] -> failwith "Schema: No clauses the given format for the projection being built. \n"
+  end
+
+let rec checkProMatches clConst ids cltms = 
+  begin match clConst with
+  | (constl)::clConst' ->
+      checkProMatches clConst' ids cltms;
+      findMatchingCls constl ids cltms
+      
+  | [] -> ()
+  end
 
 
 let make_sync_clause i ((a,b,l),(it,sub, _)) = 

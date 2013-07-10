@@ -2,7 +2,10 @@
 > Implemented a first version of proj making the statement and the proof directly from the receives assumption and string. 
  TODO: 
    1) verify that the statement is actually possible
-   2) Generalize the statement when variables in schGs appears more than once.
+   2) Generalize the statement when variables in schGs appears more than once: 
+     -) e.g. if ctx' G1 G1 -> ctx G1, changes to ctx' G1 G2 -> ctx (G1|G2), and then keep the most restrictive of G1 and G2 on ctx. 
+     > that doesn't work if both G1 and G2 restricts the pattern.
+     a) keep the statement as is, unify all the origin patterns, see if they match the destination pattern, and do that for every projection of the destination schema.
 
 (09/07/2013)
 * idea: proj could be made w/o modifying parser. tactical would be something like "apply projas_ctxNameD_D1_G1" hyp1, where hyp is, e.g. , ctxName G1 G2. The statement would then look like
@@ -29,8 +32,10 @@ PROJ
 pro.1 > receives str = ctxNameD Gi1 ... Gim (for some i1 ... im between 1 and n)
                  hyp1 = ctxName G1 ... Gn
         for some defined schema ctxName and ctxNameD
-pro.2 > verify that, for each clause C of ctxName, (Gi1, ..., Gim) in C matches a clause in ctxNameD
-proj.3 > make statement and proof that \forall G1 ... Gn,ctxName G1 ... Gn -> ctxNameD Gi1 ... Gim
+pro.2 > verify if a block mapping the same projections in ctxName to the same proj in ctxNameD was already proven
+pro.3 > verify that, for each clause C of ctxName, (Gi1, ..., Gim) in C matches a clause in ctxNameD. 
+     
+proj.4 > make statement and proof that \forall G1 ... Gn,ctxName G1 ... Gn -> ctxNameD Gi1 ... Gim
 
 
 INJ

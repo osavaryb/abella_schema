@@ -541,12 +541,26 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
 		   ()
 		 else failwith (sprintf "Schema: %d arguments expected for schema %s." arrD schNameD)
 	       else failwith (sprintf "Schema: %d arguments expected for schema %s." arrO schNameO));
-	      (* TODO: check if the statement is possible (by looking at the blocks *)
-	       let hypName = "ctxProjStub" in
-	       let projThmStr =  make_proj_stmt schNameO schOs schNameD schDs in
+(* pro.2 *)    let odPerm = List.map (fun id -> 
+                                    try 
+				      string_of_int (mem_pos id schDs)
+				    with _ -> "0") schOs in
+	       let hypName = "Hpro"^schNameO^(String.concat "" odPerm)^schNameD in
+	       begin try 
+		 let _ = get_hyp hypName in
+		 hypName
+	       with _ ->
+(* pro.3 *)    let (_,_,blsO) = listSplit3 bidsO in
+               let btmsO = type_clauses blsO in
+	       let clConsO = proClConst schOs btmsO in
+               let (_,_,blsD) = listSplit3 bidsD in
+               let btmsD = type_clauses blsD in
+                checkProMatches clConsO schDs btmsD;   
+(* pro.4 *)    let projThmStr =  make_proj_stmt schNameO schOs schNameD schDs in
 	       let projPrfStr =  make_proj_prf (List.length bidsO) in
 	       let aStr =  hypName^" : assert "^projThmStr^projPrfStr in
 	       recursePPOn aStr; hypName 
+	       end
 	    | _ -> failwith "Schema: Unexpected in projas (1)" 
 	    end)
 	| _ -> failwith "Schema: Unexpected in projas (2)"
