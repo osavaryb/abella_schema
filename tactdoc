@@ -1,3 +1,6 @@
+Documentation for the tacticals introduced in Abella's schema extension.
+by Olivier Savary-B.
+
   -----------
  | INVERSION |
   -----------
@@ -26,7 +29,6 @@ By induction on the size of the projection of the schema.
       either it corresponds to the first element in the context, close with search.
       or it doesn't, apply I.H. on the rest of the context. If the context has many clauses, I.H. will return a disjunction, case-analyse it and close each with search, otherwise close with search.
 
-Known issues:
 
  -----------
 |    SYNC   |
@@ -57,7 +59,7 @@ By induction on the size of the projection of the schema.
          if the term could've been introduced by the clause, then either it's the first element, in which case search, o.w. I.H. and search
          o.w. can't be the first element, so apply I.H. and search.
 
-Known issues:
+
 
 
  -----------
@@ -87,7 +89,7 @@ Statement:
 Proof:
 ...
 
-Known issues: 
+
 
  -----------
 |   PROJ    |
@@ -113,5 +115,3 @@ Proof:
 Proof goes by induction on the length of the projection of the original schema. 
  if 0, then nil which is in both schema, close with search
  otherwise, for every clauses in the schema, apply the I.H. to the rest of the context, and search (for the right clause in the destination schema which matches the top element).
-
-Known issues: 

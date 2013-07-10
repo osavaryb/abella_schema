@@ -29,15 +29,29 @@ open Extensions
 (* Global schema environment *)
 let schemaExt = ref false 
 
+(* name of block associated to 
+    - list of accessible logic variables 
+    - list of accessible nominal variables
+    - untyped term *)
 type blocks = (id * ((id * ty) list * (id * ty) list * uterm)) list
 let blocks : blocks ref = ref []
 
+(* name of schema associated to
+    - arrity of the each clauses 
+    - list of clauses, each consisting of
+          * list of logic variables used in the clause
+          * list of nominal vars
+          * list of blocks, each consisting of
+                  > list of logic variables passed to the block
+                  > list of nominal variables passed to the block
+                  > name of the block *)
 type schemas = (id * (int * ((id list)*(id list)*(((id list)*(id list)*id)) list) list)) list
 let schemas : schemas ref = ref []
 
 
 let add_block name block =
  blocks := (name, block)::!blocks
+
 
 let get_block name =
  try List.assoc name !blocks 
@@ -193,7 +207,7 @@ let rec isPSub sub = isPSub' sub []
 
 
 
-(* verify if term "tm" matches pattern "ptn", returns "(b,sig,foo)" where "b" is the answer, and "sig" a pattern substitution for which tm = (sig) ptn 
+(* verify if term "tm" matches pattern "ptn", returns "(b,sig)" where "b" is the answer, and "sig" a pattern substitution for which tm = (sig) ptn 
   eids is a list of exists-bound variables in ptn *)
 let rec patternMatch tm ptn eids = 
   let (_,ctable) = !sign in

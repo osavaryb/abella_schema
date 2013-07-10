@@ -2,8 +2,9 @@
 * todo: cleanup of Schema, patternMatch on type terms with properly tagged variables.
 * idea: Could accept more than one hypothesis in projas, getting constraints for more than one schema for projection variables used in many hypothesis.
 * idea: I don't think we ever need to keep the names of the block, we could just inline everything as typed term in schemas.
-
+* For tacticals, should fail gracefully if fail while generating the statement/proof, and fail with a message to report bug if fail during processing (i.e. all the statement and proof we generate should be correct).
 (10/07/2013) meeting with Kaustuv
+
 
 TODO
  0) parse projas as a diff clause in apply. (DONE)
