@@ -101,7 +101,7 @@ pro.2 > verify if a block mapping the same projections in ctxName to the same pr
 pro.3 > verify that, for each clause C of ctxName, (Gi1, ..., Gim) in C matches a clause in ctxNameD. To do this,
       a) for each clauses in the origin context, construct a list of constraints of type (id, tm), where the tm corresponds to the unification of all projections of that clauses, which are refered to as id.
       b) for each created list of constraints, check that there exists a clause in the destination context which matches all of them.
-proj.4 > make statement and proof that \forall G1 ... Gn,ctxName G1 ... Gn -> ctxNameD Gi1 ... Gim
+pro.4 > (rewrit ewith inj) make statement and proof that \forall G1 ... Gn,ctxName G1 ... Gn -> ctxNameD Gi1 ... Gim
 
 
 Statement:

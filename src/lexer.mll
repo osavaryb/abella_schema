@@ -89,6 +89,7 @@ rule token = parse
 | "CoDefine"         { CODEFINE }
 | "Schema"           { SCHEMA }
 | "Block"            { BLOCK }
+| "projas"           { SCHPRO }
 | "Query"            { QUERY }
 | "Import"           { IMPORT }
 | "Specification"    { SPECIFICATION }
@@ -133,8 +134,7 @@ rule token = parse
 | "monotone"         { MONOTONE }
 | "permute"          { PERMUTE }
 | "rename"           { RENAME }
-| "inversion"        { SCHINV }
-| "unique"           { SCHUNI }
+
 
 | "Set"              { SET }
 | "Show"             { SHOW }

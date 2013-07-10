@@ -417,7 +417,7 @@ let rec process_proof name =
       | Induction(args, hn) -> induction ?name:hn args
       | CoInduction hn -> coinduction ?name:hn ()
    | Apply(h, args, ws, hn) -> 
-  let h = if not !(Schema.schemaExt) then h else begin match h with 
+  let (h,args) = if not !(Schema.schemaExt) then (h,args) else begin match h with 
    | "inversion" ->
 (* inv.1 *) 
        begin match (get_hyp (List.hd args), get_hyp (List.hd (List.tl args))) with
@@ -426,14 +426,14 @@ let rec process_proof name =
 (* inv.2 *)let hypName = "Hinv"^schName^(string_of_int gi) in
 	   begin try
 	     let _ = get_hyp hypName in
-	     hypName
+	     (hypName, args)
 	   with  _ -> 
 	     let (arr, bids) = get_schema schName in
 (* inv.3 *)  let invThmStr = make_inv_stmt gi schName arr bids  in
 	     let invPrfStr = make_inv_prf (List.length bids) in
 	     let aStr = hypName^": assert "^invThmStr^invPrfStr in
 	     recursePPOn aStr;
-	     hypName
+	     (hypName, args)
 	   end
        | _,_ -> failwith "unexpected in inversion" 
        end
@@ -453,7 +453,7 @@ let rec process_proof name =
    let hypName = "Hsync"^schName^(string_of_int gi)^(String.concat "" adsHashl) in
    begin try
      let _ = get_hyp hypName in
-     hypName
+     (hypName, args)
    with  _ -> 
 (* syn.4 *)
    let vvts = List.filter (fun (cmts, (b,_,_)) -> b) (List.combine mts ads) in
@@ -468,7 +468,7 @@ let rec process_proof name =
    let syncThmStr = make_sync_stmt gi schName arr bids ads (List.hd tlup) in
    let syncPrfStr = make_sync_prf ads in 
    let aStr = hypName^" : assert "^syncThmStr^syncPrfStr in
-   recursePPOn  aStr; hypName end
+   recursePPOn  aStr; (hypName, args) end
    | _ , _ -> failwith " unexpected in sync" end 
   |  "unique" ->
 (* uni.1 *)      let (h0,h1,h2) = ( try (get_hyp (List.nth args 0), 
@@ -495,7 +495,7 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
                   let hypName = "Huni"^schName^(string_of_int gi)^(List.hd rel)^(String.concat "" adsHashl) in
          	  begin try
                      let _ = get_hyp hypName in
-		     hypName
+		     (hypName, args)
                   with  _ -> 
 (* uni.7 *)       let vvts = List.filter (fun (cmts, (b,_,_)) -> b) (List.combine mts ads) in
                   let (pmts,pads) = List.split vvts in
@@ -513,16 +513,14 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
 		  let uniThmStr = make_uni_stmt schName tu1 tu2 nl arr gi groundVar in
                   let uniPrfStr = make_uni_prf schName mts bads in
 		  let aStr = hypName^" : assert "^uniThmStr^uniPrfStr in
-		  recursePPOn aStr; hypName end
+		  recursePPOn aStr; (hypName,args) end
 	     | _ -> failwith "Schema: arguments in the wrong form for 'unique' tactical"
-	     end  
-  |   _ ->
-      let hl = Str.split (Str.regexp "_") h in
-      begin if List.hd hl = "projas" then
+	     end
+  |  "projas" -> 
 (* pro.1 *)  
-        ((if List.length hl < 3 then failwith "Schema: Not enough argument for projas");
-	let schNameD = List.hd (List.tl hl) in
-	let schDs = List.tl (List.tl hl) in
+(*        ((if List.length hl < 3 then failwith "Schema: Not enough argument for projas"); *)
+	let schNameD = List.hd (List.tl args) in
+	let schDs = List.tl (List.tl args) in
 	(begin match (get_hyp (List.hd args)) with 
 	| Pred (t,_) -> 
 	    (begin match observe t with
@@ -548,7 +546,7 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
 	       let hypName = "Hpro"^schNameO^(String.concat "" odPerm)^schNameD in
 	       begin try 
 		 let _ = get_hyp hypName in
-		 hypName
+		 (hypName, [List.hd args])
 	       with _ ->
 (* pro.3 *)    let (_,_,blsO) = listSplit3 bidsO in
                let btmsO = type_clauses blsO in
@@ -559,15 +557,14 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
 (* pro.4 *)    let projThmStr =  make_proj_stmt schNameO schOs schNameD schDs in
 	       let projPrfStr =  make_proj_prf (List.length bidsO) in
 	       let aStr =  hypName^" : assert "^projThmStr^projPrfStr in
-	       recursePPOn aStr; hypName 
+	       recursePPOn aStr; (hypName, [List.hd args])
 	       end
 	    | _ -> failwith "Schema: Unexpected in projas (1)" 
 	    end)
 	| _ -> failwith "Schema: Unexpected in projas (2)"
-	end))
-      else (* default *)
-       h
-      end
+	end)
+  |   _ ->
+      (h,args)
   end in
      apply ?name:hn h args ws ~term_witness;
       | Backchain(h, ws) -> backchain h ws ~term_witness

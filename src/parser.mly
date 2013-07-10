@@ -43,7 +43,7 @@
 %}
 
 %token IMP COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ
-%token IND INST APPLY CASE FROM SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ SCHINV SCHUNI
+%token IND INST APPLY CASE FROM SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ SCHPRO
 %token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT BY
 %token SPLIT SPLITSTAR UNFOLD KEEP CLEAR SPECIFICATION SEMICOLON
 %token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY SHOW SCHEMA BLOCK
@@ -137,8 +137,7 @@ id:
   | KKIND                                { "Kind" }
   | SCHEMA                               { "Schema" }
   | BLOCK                                { "Block" }
-  | SCHINV                               { "inversion"}
-  | SCHUNI                               { "unique" }
+  | SCHPRO                               { "projas" }
 
 /* Annotated ID */
 aid:
@@ -306,6 +305,7 @@ pure_command:
   | hhint IND ON num_list DOT                 { Types.Induction($4, $1) }
   | hhint COIND DOT                           { Types.CoInduction($1) }
   | hhint APPLY id TO hyp_list DOT            { Types.Apply($3, $5, [], $1) }
+  | hhint APPLY SCHPRO LPAREN perm_ids RPAREN TO hyp_list DOT    { Types.Apply ("projas",$8@$5, [], $1) }
   | hhint APPLY id TO hyp_list WITH withs DOT { Types.Apply($3, $5, $7, $1) }
   | hhint APPLY id WITH withs DOT             { Types.Apply($3, [], $5, $1) }
   | hhint APPLY id DOT                        { Types.Apply($3, [], [], $1) }

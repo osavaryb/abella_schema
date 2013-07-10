@@ -504,10 +504,11 @@ let rec unifyClConst idtm =
       let res = unifyClConst idtm' in
       if List.mem_assoc id res then
 	let tm' = List.assoc id res in
-(* 	printf "in unify clConst, %s is unification of %s and %s. \n" id (term_to_string tm) (term_to_string tm'); flush stdout; *)
-	 Unify.left_unify tm tm';
+(* 	printf "in unify clConst, unify  %s and %s as %s. \n" (term_to_string tm) (term_to_string tm') id; flush stdout;  *)
+	 Unify.right_unify tm tm';
 	res
       else
+(*	(printf "in unify clConst, adding  %s as %s. \n" (term_to_string tm) id; flush stdout;  *)
 	(id, tm)::res
   | [] -> [] 
   end
@@ -521,7 +522,7 @@ let rec proClConst ids cls =
       begin try 
 	let clConst = unifyClConst idtts in
 	clConst::res
-      with _ -> failwith "Schema: in proClConst, failed to unify projection constraints. \n" 
+      with e ->  failwith "Schema: in proClConst, failed to unify projection constraints. \n" 
       end 	
   | [] -> []
   end
