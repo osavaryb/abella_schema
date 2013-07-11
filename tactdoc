@@ -1,15 +1,23 @@
 Documentation for the tacticals introduced in Abella's schema extension.
-by Olivier Savary-B.
+by Olivier Savary
 
   -----------
  | INVERSION |
   -----------
 Description: Inversion states that, for a variable E of some projection of a schema, E be of the forms introduced by the clauses of the schema of the context, and, members introduced in other projections at the same time must also be present in their respective projection.
 
+Syntax:
+	apply inv to H1 H2 
+
+	where H1: ctxName G1 ... Gm
+	      H2: member V Gi
+
+
 High-level overview:
-inv.1 > receives hyp1 = ctxName G1 ... Gn
-                 hyp2 = member E Gi
-        for defined ctxName and a variable E
+inv.1 > verify that 
+      	         hyp1 = ctxName G1 ... Gn
+                 hyp2 = member V Gi
+        for defined ctxName of arrity n, 1 < i < n,  and a logic variable V
 inv.2 > See if a proof of inv was already done for that schema, for the same projection of the schema. If it is the case, return that schema name, otherwise continue.
 inv.3 >  make inv statement & proof corresponding to the schema ctxName, for an element E at the ith projection
 
@@ -35,11 +43,19 @@ By induction on the size of the projection of the schema.
  -----------
 Description: Sync states that, for particular term E, member of some projection of a schema to have a certain form, it must have been introduced by one of the clauses which matches the form of E, s.t. members introduced in other projections at the same time must be present in their respective projections.
 
+Syntax:
+	apply sync to H1 H2 
+
+	where H1: ctxName G1 ... Gm
+	      H2: member E Gi
+
+
 High-level overview:
 
- syn.1 > receives hyp1 = ctxName G1 ... Gn
+ syn.1 > verify that
+       	 	  hyp1 = ctxName G1 ... Gn
                   hyp2 = member E[X1,...Xm] Gi
-         for defined ctxName and some E:o
+         for defined ctxName of arrity n,  1 < i < n, and some E:o.
  syn.2 > see which blocks, from the ith projection of ctxName, could match E
  syn.3 > See if a proof of sync was already done for that schema, for a statement matching the same clauses. If it is the case, return that schema name, otherwise continue.
  syn.4 > unify all the matched blocks as T
@@ -49,7 +65,8 @@ High-level overview:
 Naming: "Hsync"^[name of the schema]^[projection of the schema at which we sync ]^[ bitmap of matched blocks ]
 
 Statement:
-...
+Disjunction of, for each of the clauses matching E,
+	   Conjuction, for j between 1 and n, not equal to i, of the membership assumption "member Ej Gj" and of freshness assumptions for the variables present in the clause.
 
 Proof:
 By induction on the size of the projection of the schema. 
@@ -67,11 +84,20 @@ By induction on the size of the projection of the schema.
  -----------
 Description: Unique states that, if two members of a projection of a schema are equal on a nabla-bound variable, the other variables (both nabla and exists bound) from the relevant block(s) must also be equal.
 
+Syntax: 
+	apply unique to H1 H2 H3 
+
+	where H1: ctxName G1 ... Gm
+	      H2: member E1 Gi
+	      H3: member E2 Gi
+
+
 High-level overview:
- uni.1 > receives hyp1 = ctxName G1 ... Gn
-                  hyp2 = member (E1[A1,...,Am]) Gi 
-                  hyp3 = member (E2[B1,...,Bp]) Gi
-         for defined schema ctxName
+ uni.1 > verify that 
+         	  hyp1 = ctxName G1 ... Gn
+                  hyp2 = member E1 Gi
+                  hyp3 = member E2 Gi
+         for defined schema ctxName of arrity n and  1 < i < n, and some E1:o and E2:o
  uni.2 > see & get which variables are equal and in the same position in E1 and E2.
  uni.3 > unify E1 and E2 as E
  uni.4 > see which clauses of ctxName's ith projection matches E
@@ -94,12 +120,18 @@ Proof:
  -----------
 |   PROJ    |
  -----------
-Description: 
+Description: ...
+
+Syntax: 
+	"apply projas (ctxNameD D1 ... Dn) to H"
+	
+	where H:ctxNameO G1 ... Gm
+
 
 High-level overview:
- pro.1 > receives str = ctxNameD Gi1 ... Gim (for some i1 ... im between 1 and n)
-                  hyp1 = ctxName G1 ... Gn
-         for some defined schema ctxName and ctxNameD
+ pro.1 > verify that  str =  ctxNameD D1 ... Dn (for some i1 ... im between 1 and n)
+                      hyp1 = ctxNameO G1 ... Gm
+         for some defined schema ctxNameO of arrity m and ctxNameD of arrity n.
 pro.2 > verify if a block mapping the same projections in ctxName to the same proj in ctxNameD was already proven
 pro.3 > verify that, for each clause C of ctxName, (Gi1, ..., Gim) in C matches a clause in ctxNameD. To do this,
       a) for each clauses in the origin context, construct a list of constraints of type (id, tm), where the tm corresponds to the unification of all projections of that clauses, which are refered to as id.
