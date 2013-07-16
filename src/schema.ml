@@ -511,8 +511,8 @@ begin match bids with
       let res = type_clauses cls' in
       let uts = List.map get_block_sub bls in
       let tts = List.map (fun (eb,nb,ut) -> 
-	    let nbt = List.map (fun (name,typ) -> (name,Term.(var Nominal name max_int typ))) nb in
-	    let ebt = List.map (fun (name,typ) -> (name,Term.(var Logic name (max_int-1) typ))) eb in
+	    let nbt = tyctx_to_nominal_ctx nb in
+	    let ebt = tyctx_to_ctx eb in
 	    type_uterm ~sr:!sr ~sign:!sign ~ctx:(List.append nbt ebt) ut) uts in
       tts::res
 | [] -> []
@@ -554,6 +554,20 @@ let rec checkProMatches clConst ids cltms =
       
   | [] -> ()
   end
+
+
+let make_schema_def schName arr bids = 
+	    let schTy = (str_repeat arr " olist ->")^" prop" in
+	    let blids = List.map (fun (a,b,l) -> l) bids in 
+	    let clstrl = List.map (fun e ->
+		 List.fold_left (fun (i,defl,defr) -> fun  (idtys1 ,idtys2 , utm) -> (i+1,defl^" (("^(uterm_to_string utm)^") :: G"^(string_of_int i)^")", defr^" G"^(string_of_int i))) (1, schName, schName) (List.map get_block_sub e)) blids in
+	    begin match List.length blids with
+	    |  0 -> "Define "^schName^":"^schTy^" by \n"^schName^(str_repeat arr " nil")^"."
+	    |  _ -> "Define "^schName^":"^schTy^" by \n"^schName^(str_repeat arr " nil")^";\n"^(String.concat ";\n" (List.map (fun ((_,b,_),(_,d,e)) -> 
+		if b = [] then 
+		  sprintf "%s := %s "  d e
+		else 
+		  sprintf "nabla %s , %s := %s" (String.concat " " b) d e) (List.combine bids clstrl)))^"." end 
 
 
 let make_sync_clause i ((a,b,l),(it,sub)) = 

@@ -699,9 +699,11 @@ let rec process () =
 	    let idtys = type_vars_in (uterm_to_term [] ut) (Ty( [], "o")) sign in
 	    let idtys = rem_rep_pairs idtys in
 	    let tys1 = List.map (fun id -> List.assoc id idtys) ids1 in
-	    let tys2 = List.map (fun id -> List.assoc id idtys) ids2 in
+	    let tys2 = List.map (fun id -> List.assoc id idtys) ids2 in 
 	    let proofStr = makeBlockGeneric tys1 tys2 in
-	    add_block id (List.combine ids1 tys1,List.combine ids2 tys2,ut);
+	    let idtys1 = List.combine ids1 tys1 in
+	    let idtys2 = List.combine ids2 tys2 in
+	    add_block id (idtys1,idtys2,ut);
 	      recursePOn proofStr
 	| Schema (id,bids) -> 
     (* check that the name is fresh, *)
@@ -709,24 +711,14 @@ let rec process () =
 (* that for each block, the applied variables are bound from the proper quantifier, *)
 	    let _ = List.map (fun (a,b,l) -> 
 	      (List.map (fun (c,d,e) -> if (List.fold_left (fun r -> fun var -> r && List.mem var a) true c)  && (List.fold_left (fun r -> fun var -> r && List.mem var b) true d)  then () else failwith (sprintf "Free variable(s) in the declaration of %s" id)) l)) bids in
-(* that the arriety of the schema is the same for every clause (save the result), *)
+(* that the arrity of the schema is the same for every clause (save the result), *)
 	    let arr = (fun (a,b,l) -> List.length l) (List.hd bids) in
-	    let _ = List.map (fun (a,b,l) -> if arr = (List.length l) then () else failwith (sprintf "All clauses should have the same arrity (%d) in the declaration of %s" arr id)) bids in
+	    List.iter (fun (a,b,l) -> if arr = (List.length l) then () else failwith (sprintf "All clauses should have the same arrity (%d) in the declaration of %s" arr id)) bids;
 	    (*and that  nabla bound variables are used at most once in every block. *)
 	    let _ = List.map (fun (a,b,l) ->
 	      (List.map (fun (c,d,e) -> if List.is_unique d then () else failwith (sprintf "Nabla bound variable should be used linearly in the declaration of %s" id)) l)) bids in
 	    add_schema id (arr, bids);
-	    let schTy = (str_repeat arr " olist ->")^" prop" in
-	    let blids = List.map (fun (a,b,l) -> l) bids in 
-	    let clstrl = List.map (fun e ->
-		 List.fold_left (fun (i,defl,defr) -> fun  (idtys1 ,idtys2 , utm) -> (i+1,defl^" (("^(uterm_to_string utm)^") :: G"^(string_of_int i)^")", defr^" G"^(string_of_int i))) (1, id, id) (List.map get_block_sub e)) blids in
-	    let cdef = begin match List.length blids with
-	    |  0 -> "Define "^id^":"^schTy^" by \n"^id^(str_repeat arr " nil")^"."
-	    |  _ -> "Define "^id^":"^schTy^" by \n"^id^(str_repeat arr " nil")^";\n"^(String.concat ";\n" (List.map (fun ((_,b,_),(_,d,e)) -> 
-	      if b = [] then 
-	      sprintf "%s := %s "  d e
-		else 
-	      sprintf "nabla %s , %s := %s" (String.concat " " b) d e) (List.combine bids clstrl)))^"." end in
+	    let cdef = make_schema_def id arr bids in
 	    recursePOn cdef
         | CoDefine(idtys, udefs) ->
             let ids = List.map fst idtys in
