@@ -107,11 +107,13 @@ end
 
 
 (* Schema toolbox *)
-let get_head_id tm =
+
+
+let rec get_head_id tm =
   begin match observe (hnorm tm) with
-  | App ( t , ts ) -> term_to_string t
+  | App ( t , _ ) -> get_head_id t
   | Var v -> Term.(v.name)
-  | _ -> invalid_arg "Unexpected tm in get_nth_id"
+  | _ -> invalid_arg "Unexpected term in get_head_id"
   end
 
 
@@ -320,13 +322,7 @@ end
  invalid_arg (sprintf "unexpected %s and %s in uniteTerms" (term_to_string t1) (term_to_string t2)) 
    end
 
-let rec replaceithby ng id tl =
-begin match tl,ng with
-   | t::tl',0 -> 
-      Term.(var Constant id max_int (Ty([],"err")))::tl'
-   | t::tl',_ -> t::(replaceithby (ng-1) id tl')
-   | [],_ -> []
-end
+
    
 
 let rec pairwiseEqual t1 t2 = 
@@ -468,7 +464,7 @@ end
 let member_of_ith t1 t2 =
   begin match observe t1, observe t2 with
   | App (t1h,t1l), App(t2h,t2l) -> if ((term_to_string t2h) = "member") then
-      let t1l' = List.map get_head_id t1l in 
+      let t1l' = List.map (get_head_id) t1l in 
       let gi = get_head_id (List.hd (List.tl t2l)) in 
       let schName = term_to_string t1h in
       if (List.mem_assoc schName !schemas) then () else failwith ("Schema: "^schName^" is not the name of a defined schema");
