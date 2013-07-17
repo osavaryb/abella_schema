@@ -511,8 +511,8 @@ begin match bids with
       let res = type_clauses cls' in
       let uts = List.map get_block_sub bls in
       let tts = List.map (fun (eb,nb,ut) -> 
-	    let nbt = tyctx_to_nominal_ctx nb in
-	    let ebt = tyctx_to_ctx eb in
+	let nbt = List.map (fun (name,typ) -> (name,Term.(var Nominal name max_int typ))) nb in
+	let ebt = List.map (fun (name,typ) -> (name,Term.(var Logic name (max_int-1) typ))) eb in
 	    type_uterm ~sr:!sr ~sign:!sign ~ctx:(List.append nbt ebt) ut) uts in
       tts::res
 | [] -> []

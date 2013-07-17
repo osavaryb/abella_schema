@@ -93,3 +93,11 @@ intros. case H2 (keep).
     case H8. case H4.
      apply IH to H1 H9 H3. search.
 
+
+Block bfreeb( ; n) := bfree n.
+
+Schema bfctx := nabla n p, (bfreeb ( ; n), pathb( ; n,p)).
+
+
+Theorem bfctxToCtx2: forall G D, bfctx G D -> (exists E, ctx2 E D).
+intros. apply projas (ctx2 E D) to H1. search.
