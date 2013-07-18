@@ -432,7 +432,7 @@ let rec process_proof name =
 (* inv.3 *)  let invThmStr = make_inv_stmt gi schName arr bids  in
 	     let invPrfStr = make_inv_prf (List.length bids) in
 	     let aStr = hypName^": assert "^invThmStr^invPrfStr in
-	     recursePPOn aStr;
+	     recursePPOn ~quiet:false aStr;
 	     (hypName, args)
 	   end
        | _,_ -> failwith "unexpected in inversion" 

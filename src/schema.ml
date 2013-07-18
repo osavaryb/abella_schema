@@ -114,9 +114,9 @@ end
 
 
 let make_n_fresh_hyp n s = 
-  let (_ , hs) = List.fold_left (fun (hypctx, fns) hn -> 
+  let (_ , hs) = List.fold_right (fun  hn (hypctx, fns) -> 
     let fhn = fresh_name hn  hypctx in
-    ((fhn, ())::hypctx , fhn::fns)) ((List.map (fun h -> (h.id, ())) sequent.hyps),[]) (string_count n s) in
+    ((fhn, ())::hypctx , fhn::fns)) (string_count n s) ((List.map (fun h -> (h.id, ())) sequent.hyps),[])  in
   hs
 
 
@@ -523,19 +523,7 @@ let rec proClConst ids cls =
   | [] -> []
   end
 
-(* TODEL
-let rec type_clauses bids = 
-begin match bids with
-| (bls)::cls' ->
-      let res = type_clauses cls' in
-      let uts = List.map get_block_sub bls in
-      let tts = List.map (fun (eb,nb,ut) -> 
-	let nbt = List.map (fun (name,typ) -> (name,Term.(var Nominal name max_int typ))) nb in
-	let ebt = List.map (fun (name,typ) -> (name,Term.(var Logic name (max_int-1) typ))) eb in
-	    type_uterm ~sr:!sr ~sign:!sign ~ctx:(List.append nbt ebt) ut) uts in
-      tts::res
-| [] -> []
-end *)
+
 
 
 let rec clMatchesConst constl idtms =
