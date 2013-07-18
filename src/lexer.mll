@@ -88,7 +88,6 @@ rule token = parse
 | "Define"           { DEFINE }
 | "CoDefine"         { CODEFINE }
 | "Schema"           { SCHEMA }
-| "Block"            { BLOCK }
 | "projas"           { SCHPRO }
 | "Query"            { QUERY }
 | "Import"           { IMPORT }

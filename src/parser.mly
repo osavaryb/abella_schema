@@ -46,7 +46,7 @@
 %token IND INST APPLY CASE FROM SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ SCHPRO
 %token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT BY
 %token SPLIT SPLITSTAR UNFOLD KEEP CLEAR SPECIFICATION SEMICOLON
-%token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY SHOW SCHEMA BLOCK
+%token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY SHOW SCHEMA 
 %token PERMUTE BACKCHAIN QUIT UNDERSCORE AS SSPLIT RENAME
 %token COLON RARROW FORALL NABLA EXISTS STAR AT HASH OR AND 
 %token LBRACE RBRACE LBRACK RBRACK
@@ -136,7 +136,6 @@ id:
   | TTYPE                                { "Type" }
   | KKIND                                { "Kind" }
   | SCHEMA                               { "Schema" }
-  | BLOCK                                { "Block" }
   | SCHPRO                               { "projas" }
 
 /* Annotated ID */
@@ -225,24 +224,17 @@ lpend:
 
 
 sclause_list:
-  | existsopt nablaopt bid_tup                { [($1,$2,$3)] }
-  | existsopt nablaopt bid_tup SEMICOLON sclause_list  { ($1,$2,$3)::$5}
+  | existsopt nablaopt term_tup                { [($1,$2,$3)] }
+  | existsopt nablaopt term_tup SEMICOLON sclause_list  { ($1,$2,$3)::$5}
 
-bid_tup:
-  |  blockid                           {[$1]}
-  |  LPAREN bid_list RPAREN            {$2}
 
-bid_list:
-  | blockid                            {[$1]}
-  | blockid COMMA bid_list             {$1::$3}
+term_tup:
+  | term                                 { [$1] }
+  | LPAREN term_list RPAREN              { $2   }
 
-blockid:
-  | id                                  {([],[],$1)}
-  | id LPAREN optid_list SEMICOLON optid_list RPAREN {($3,$5,$1)}
-
-optid_list:
-  | id_list                             { $1 } 
-  |                                      { [] }
+term_list:
+  | term                                 { [$1] }
+  | term COMMA term_list                 { $1::$3}
 
 id_list:
   | id                                   { [$1] }
@@ -436,7 +428,6 @@ pure_top_command:
   | CLOSE id_list DOT                    { Types.Close($2) }
   | SSPLIT id DOT                        { Types.SSplit($2, []) }
   | SSPLIT id AS id_list DOT             { Types.SSplit($2, $4) }
-  | BLOCK id LPAREN optid_list SEMICOLON optid_list RPAREN DEFEQ term DOT              { Types.Block($2,($4,$6,$9))} 
   | SCHEMA id DEFEQ sclause_list DOT          { Types.Schema($2,$4) }
 
 common_command:

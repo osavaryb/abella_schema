@@ -59,8 +59,7 @@ type top_command =
   | Close of id list
   | SSplit of id * id list
   | TopCommon of common_command
-  | Block of id * ((id list) * (id list) * uterm)
-  | Schema of id * (id list * id list * (((id list)*(id list)*id) list)) list
+  | Schema of id * (id list * id list * uterm list) list
 
 type compiled =
   | CTheorem of id * metaterm
@@ -180,15 +179,13 @@ let top_command_to_string tc =
           sprintf "Split %s as %s" id (id_list_to_string ids)
         else
           sprintf "Split %s" id
-    | Block (id, (ids1,ids2,t)) ->
-	let eS = if ids1 = [] then "(" else sprintf "( %s" (id_list_to_string ids1) in 
-	let nS = if ids2 = [] then "; )" else sprintf "; %s)" (id_list_to_string ids2) in
-	sprintf "Block %s %s %s := %s" id  eS nS (uterm_to_string t)
-    | Schema (id, bgids) ->
-	let bids = List.map (fun (a,b,c) -> c) bgids in
-	let bhids = List.map (List.map (fun (a,b,c) -> c)) bids in
-	let ids = List.map (String.concat ", ") bhids in
-         sprintf "Schema %s := %s" id (String.concat "; " ids)
+    | Schema (id, cll) ->
+	let clstr = List.map (fun (a,b,c) -> 
+	        let cstr = List.map uterm_to_string c in
+		let astr = if a = [] then "" else "exists "^(String.concat " " a)^", " in
+		let bstr = if a = [] then "" else "nabla "^(String.concat " " b)^", " in
+		astr^bstr^" ("^(String.concat ", " cstr)^")") cll in
+         sprintf "Schema %s := %s" id (String.concat ";\n " clstr)
     | TopCommon(cc) ->
         common_command_to_string cc
 

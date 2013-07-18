@@ -1,12 +1,9 @@
 Specification "unit".
 
 
-Block ofi ( ; ) := i.
-Block ofb (A;x) := of x A.
-Block ofc ( A ; x) := of x (foo A).
 
-Schema ctxo := exists B, nabla x, ofc (B;x).
-Schema ctxoo := exists B A, nabla x, (ofb (A;x), ofc (B;x)).
+Schema ctxo := exists B, nabla x, of x (foo B).
+Schema ctxoo := exists B A, nabla x, (of x A, of x (foo B)).
 
 
 
@@ -26,8 +23,8 @@ intros. apply projas (ctxoo G2 G1) to H1. search.
 Theorem ctx_inj3: forall G1, ctxo G1 -> ctxoo G1 G1.
 intros. apply projas (ctxoo G1 G1) to H1. search.
 
-Schema ctxi := ofi;
-              exists B,nabla n, ofb (B;n).
+Schema ctxi := i;
+              exists B,nabla n, of n B.
 
 
 Theorem ctxi_inj1: forall G1, ctxo G1 -> ctxi G1.

@@ -3,16 +3,9 @@ Specification "breduce".
 Close tm, p.
 
 
-Block bredb ( ; x) := bred x x.
 
-Block pathb ( ; x,p) := path x p.
-
-Block pibredb (N; x) := (pi u\ bred N u => bred x u).
-
-Block pipathb (N; x) := (pi q\ path N q => path x q).
-
-Schema ctx2 := nabla x p, (bredb( ; x), pathb( ;x,p));
-               exists N, nabla x, (pibredb(N; x), pipathb (N;x)).
+Schema ctx2 := nabla x p, (bred x x, path x p);
+               exists N, nabla x, ((pi u\ bred N u => bred x u), (pi q\ path N q => path x q)).
 
 
 Theorem member_D_discrim :
@@ -49,19 +42,19 @@ intros. case H2 (keep).
   case H3.
     apply IH to _ H4 H5. search.
     apply inversion to H1 H6. case H7.
-      case H9. case H5. case H9. case H5.
+      case H10. case H5. case H9. case H5.
   case H3.
     apply IH to _ H4 H6. search.
     apply IH to _ H5 H6. search.
     apply inversion to H1 H7. case H8.
-      case H10. case H6. case H10. case H6.
+      case H11. case H6. case H10. case H6.
   case H3.
     apply IH to _ H4 H5.
      inst H6 with n1 = N1.
      assert {D |- pi q\ path N1 q => path N1 q}.
      cut H7 with H8. search.
     apply inversion to H1 H6. case H7.
-     case H9. case H5. case H9. case H5.
+     case H10. case H5. case H9. case H5.
   apply inversion to H1 H5. case H6.
     case H8. case H4. search.
     case H8. case H4.
@@ -80,23 +73,22 @@ intros. case H2 (keep).
   case H3.
     apply IH to _ H4 H5. search.
     apply inversion to H1 H6. case H7.
-      case H9. case H5. case H9. case H5.
+      case H10. case H5. case H9. case H5.
   case H3.
     apply IH to _ H4 H6. search.
     apply IH to _ H5 H6. search.
     apply inversion to H1 H7. case H8.
-      case H10. case H6. case H10. case H6.
+      case H11. case H6. case H10. case H6.
   assert {D, (pi q\ path N1 q => path n1 q) |- path N P}.
    apply IH to _ H4 H5. search.
   apply inversion to H1 H5. case H6.
-    case H8. case H4. search.
+    case H9. case H4. search.
     case H8. case H4.
      apply IH to H1 H9 H3. search.
 
 
-Block bfreeb( ; n) := bfree n.
 
-Schema bfctx := nabla n p, (bfreeb ( ; n), pathb( ; n,p)).
+Schema bfctx := nabla n p, (bfree n, path n p).
 
 
 Theorem bfctxToCtx2: forall G D, bfctx G D -> (exists E, ctx2 E D).

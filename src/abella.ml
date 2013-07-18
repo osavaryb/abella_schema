@@ -417,7 +417,7 @@ let rec process_proof name =
       | Induction(args, hn) -> induction ?name:hn args
       | CoInduction hn -> coinduction ?name:hn ()
    | Apply(h, args, ws, hn) -> 
-  let (h,args) = if not !(Schema.schemaExt) then (h,args) else begin match h with 
+  let (h,args) = begin match h with 
    | "inversion" ->
 (* inv.1 *) 
        begin match (get_hyp (List.hd args), get_hyp (List.hd (List.tl args))) with
@@ -437,16 +437,14 @@ let rec process_proof name =
 	   end
        | _,_ -> failwith "unexpected in inversion" 
        end
-  | "sync" -> 
+ | "sync" -> 
 (* syn.1 *)
    begin match (get_hyp (List.hd args), get_hyp (List.hd (List.tl args))) with
    | Pred ( t, _), Pred (t1, _ ) ->
    let (schName,gi,st) = member_of_ith t t1 in
    let (arr, bids) = get_schema schName in
 (* syn.2 *)
-   let githbids = List.map (fun (a,b,c) -> (a,b, List.nth c (gi-1))) bids in 
-   let bnames = List.map (fun (a,b,(c,d,e)) -> (c,d,e)) githbids in
-   let mts = List.map get_block_sub bnames in
+   let mts = List.map (fun (a,b,tml) -> List.nth tml (gi-1)) bids in
    let ads = instOfPats st mts in
 (* syn.3 *)
    let adsHashl = List.map (fun (b,_) -> if b then "1" else "0") ads in
@@ -458,10 +456,7 @@ let rec process_proof name =
 (* syn.4 *)
    let vvts = List.filter (fun (cmts, (b,_)) -> b) (List.combine mts ads) in
    if vvts = [] then failwith (sprintf "Schema: in sync, no clauses of %s can introduce a formula of the form %s. \n" schName (term_to_string st));
-   let (pmts,pads) = List.split vvts in
-   let tlup = List.map (fun (eb,nb,ut) -> 
-		    let abt = List.map (fun (name,typ) -> (name,Term.(var Logic name (max_int-1) typ))) (List.append eb nb) in
-		    type_uterm ~sr:!sr ~sign:!sign ~ctx:abt ut) pmts in
+   let (tlup,pads) = List.split vvts in
    List.iter (Unify.left_unify (List.hd tlup)) (List.tl tlup);
    let ads = instOfPats (List.hd tlup) mts in
 (* syn.5 *)
@@ -469,7 +464,7 @@ let rec process_proof name =
    let syncPrfStr = make_sync_prf ads in 
    let aStr = hypName^" : assert "^syncThmStr^syncPrfStr in
    recursePPOn  aStr; (hypName, args) end
-   | _ , _ -> failwith " unexpected in sync" end 
+   | _ , _ -> failwith " unexpected in sync" end  
   |  "unique" ->
 (* uni.1 *)      let (h0,h1,h2) = ( try (get_hyp (List.nth args 0), 
 					 get_hyp (List.nth args 1),
@@ -481,10 +476,7 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
 	 let (schName', gi',te2) = (member_of_ith t t2) in
 	 (if  (gi <> gi' || schName <> schName') then failwith "Schema: membership hypothesis should come from the same projection of the context in 'unique' tactical");
 		  let (arr,bids) = get_schema schName in
-		  let bids = List.map (fun (a,b,c) -> (a,b, List.nth c (gi-1))) bids in
-		  let bnames = List.map (fun (a,b,(c,d,e)) -> (c,d,e)) bids in
-		  let mts = List.map get_block_sub bnames in
-
+		  let mts = List.map (fun (a,b,tml) -> (List.nth tml (gi-1))) bids  in
 (* uni.2 *)       let varl = pairwiseEqual te1 te2 in
 
 (* uni.3 *)       Unify.left_unify te1 te2; 
@@ -501,12 +493,9 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
                   let (pmts,pads) = List.split vvts in
 
 
-		  let utlup = List.map (fun ((eb,nb,ut),oldid) -> 
+		  let tlup = List.map (fun (tm,oldid) -> 
 		    let gvSwap = ((groundVar,oldid)::[(oldid,groundVar)]) in
-		    ((rename_ids_in_idtys gvSwap (List.append eb nb)), (rename_ids_in_uterm gvSwap ut))) (List.combine pmts rel) in
-		  let tlup = List.map (fun (ab,ut) -> 
-		    let abt = List.map (fun (name,typ) -> (name,Term.(var Logic name (max_int-1) typ))) ab in
-		    type_uterm ~sr:!sr ~sign:!sign ~ctx:abt ut) utlup in
+		    (rename_ids_in_term gvSwap tm)) (List.combine pmts rel) in
 		  List.iter (Unify.left_unify (List.hd tlup)) (List.tl tlup);
 (* uni.8 *)      let (nl,tu1,tu2) = uniteTerms (List.hd tlup) (List.hd tlup) 0 groundVar in
 		  let (bads,_) = List.split ads in
@@ -515,7 +504,7 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
 		  let aStr = hypName^" : assert "^uniThmStr^uniPrfStr in
 		  recursePPOn aStr; (hypName,args) end
 	     | _ -> failwith "Schema: arguments in the wrong form for 'unique' tactical"
-	     end
+	     end  
   |  "projas" -> 
 (* pro.1 *)  
 (*        ((if List.length hl < 3 then failwith "Schema: Not enough argument for projas"); *)
@@ -548,11 +537,9 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
 		 let _ = get_hyp hypName in
 		 (hypName, [List.hd args])
 	       with _ ->
-(* pro.3 *)    let (_,_,blsO) = split3 bidsO in
-               let btmsO = type_clauses blsO in
+(* pro.3 *)    let (_,_,btmsO) = split3 bidsO in
 	       let clConsO = proClConst schOs btmsO in
-               let (_,_,blsD) = split3 bidsD in
-               let btmsD = type_clauses blsD in
+               let (_,_,btmsD) = split3 bidsD in
                 checkProMatches clConsO schDs btmsD;   
 (* pro.4 *)    let projThmStr =  make_proj_stmt schNameO schOs schNameD schDs in
 	       let projPrfStr =  make_proj_prf (List.length bidsO) in
@@ -562,10 +549,10 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
 	    | _ -> failwith "Schema: Unexpected in projas (1)" 
 	    end)
 	| _ -> failwith "Schema: Unexpected in projas (2)"
-	end)
+	end) 
   |   _ ->
       (h,args)
-  end in
+  end in 
      apply ?name:hn h args ws ~term_witness;
       | Backchain(h, ws) -> backchain h ws ~term_witness
       | Cut(h, arg, hn) -> cut ?name:hn h arg
@@ -694,7 +681,7 @@ let rec process () =
                 commit_global_consts local_sr local_sign ;
                 compile (CDefine(idtys, defs)) ;
                 add_defs ids Inductive defs
-        | Block (id,(ids1,ids2,ut)) ->  
+(*        | Block (id,(ids1,ids2,ut)) ->  
                check_noredef [id]; (* TODO: check block no redef *)
 	    let idtys = type_vars_in (uterm_to_term [] ut) (Ty( [], "o")) sign in
 	    let idtys = rem_rep_pairs idtys in
@@ -704,22 +691,37 @@ let rec process () =
 	    let idtys1 = List.combine ids1 tys1 in
 	    let idtys2 = List.combine ids2 tys2 in
 	    add_block id (idtys1,idtys2,ut);
-	      recursePOn proofStr
-	| Schema (id,bids) -> 
+	      recursePOn proofStr *)
+	| Schema (id,cll) -> 
     (* check that the name is fresh, *)
             check_noredef [id];
-(* that for each block, the applied variables are bound from the proper quantifier, *)
-	    let _ = List.map (fun (a,b,l) -> 
-	      (List.map (fun (c,d,e) -> if (List.fold_left (fun r -> fun var -> r && List.mem var a) true c)  && (List.fold_left (fun r -> fun var -> r && List.mem var b) true d)  then () else failwith (sprintf "Free variable(s) in the declaration of %s" id)) l)) bids in
-(* that the arrity of the schema is the same for every clause (save the result), *)
-	    let arr = (fun (a,b,l) -> List.length l) (List.hd bids) in
-	    List.iter (fun (a,b,l) -> if arr = (List.length l) then () else failwith (sprintf "All clauses should have the same arrity (%d) in the declaration of %s" arr id)) bids;
-	    (*and that  nabla bound variables are used at most once in every block. *)
-	    let _ = List.map (fun (a,b,l) ->
-	      (List.map (fun (c,d,e) -> if List.is_unique d then () else failwith (sprintf "Nabla bound variable should be used linearly in the declaration of %s" id)) l)) bids in
-	    add_schema id (arr, bids);
-	    let cdef = make_schema_def id arr bids in
-	    recursePOn cdef
+	    if cll = [] then failwith "Can't declare an empty schema";
+            (*verify that the arity is the same for every clause (save the result), *)
+		let arr = (fun (_,_,cl) -> List.length cl) (List.hd cll) in
+		List.iter (fun (_,_,cl) -> if arr = (List.length cl) then () else failwith (sprintf "All clauses of %s should have the same arity (%d)" id arr)) cll;
+	    (* in each clause, type all blocks *)
+		let clgenl = List.map (fun (eb,nb,cl) -> 
+		  let eb = List.unique eb in
+		  List.iter (fun id -> if not (id.[0] = Char.uppercase (id.[0])) then failwith ("Exists bound variables must start with an uppercase character, in declaration of "^id)) eb;
+		  let nb = List.unique nb in
+		  let (ebidtys,nbidtys) = List.fold_left (fun (ebit,nbit) ut ->
+		       let vlist = type_vars_in (uterm_to_term [] ut) (Ty( [], "o")) sign in
+		       let (ebit',nbit') = List.partition (fun (id,ty) -> List.mem id eb) vlist in
+		       List.iter (fun (id,ty) -> if not (List.mem id nb) then failwith ("Schema: Unknown constant "^id^"\n")) nbit';
+	(append_uni_assocs ebit ebit', append_uni_assocs nbit nbit')) ([],[]) cl in
+		  let (_,tys1) = List.split ebidtys in
+		  let (_,tys2) = List.split nbidtys in
+		  let genStr = makeBlockGeneric tys1 tys2 in
+		  let ebctx = tyctx_to_logical_ctx ebidtys in
+		  let nbctx = tyctx_to_nominal_ctx nbidtys in
+		  let tyctx = List.append ebctx nbctx in
+		  let clt = List.map (fun ut -> type_uterm ~sr:!sr ~sign:!sign ~ctx:tyctx ut) cl in
+		  ((ebidtys,nbidtys,clt),genStr)) cll in
+		let (cll',genl) = List.split clgenl in
+		let genStr = String.concat " \n" genl in
+		add_schema id (arr, cll');
+		let cdef = make_schema_def id arr cll' in
+		recursePOn  (cdef^" \n "^genStr)
         | CoDefine(idtys, udefs) ->
             let ids = List.map fst idtys in
               check_noredef ids;
