@@ -479,7 +479,7 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
 	     | Pred(t,_),Pred(t1,_),Pred(t2,_) ->
 	 let (schName , gi ,te1) = (member_of_ith t t1) in
 	 let (schName', gi',te2) = (member_of_ith t t2) in
-	 (if  (gi <> gi' || schName <> schName') then failwith "Schema: membership hypothesis should come from the same projection of the context in 'unique' tactical" else ());
+	 (if  (gi <> gi' || schName <> schName') then failwith "Schema: membership hypothesis should come from the same projection of the context in 'unique' tactical");
 		  let (arr,bids) = get_schema schName in
 		  let bids = List.map (fun (a,b,c) -> (a,b, List.nth c (gi-1))) bids in
 		  let bnames = List.map (fun (a,b,(c,d,e)) -> (c,d,e)) bids in
@@ -695,7 +695,7 @@ let rec process () =
                 compile (CDefine(idtys, defs)) ;
                 add_defs ids Inductive defs
         | Block (id,(ids1,ids2,ut)) ->  
-               check_noredef [id];
+               check_noredef [id]; (* TODO: check block no redef *)
 	    let idtys = type_vars_in (uterm_to_term [] ut) (Ty( [], "o")) sign in
 	    let idtys = rem_rep_pairs idtys in
 	    let tys1 = List.map (fun id -> List.assoc id idtys) ids1 in

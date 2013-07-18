@@ -608,7 +608,7 @@ let make_sync_stmt i id arr ids ads tm =
   let fvl = List.map (fun v -> Term.(v.name)) fvvl in
   let fvstr = String.concat " " fvl in
   let clstrl = List.map  (make_sync_clause i) (List.combine ids ads) in
-  List.iteri (printf "%d: Make_sync_clause  %s \n") clstrl; flush stdout;
+(*   List.iteri (printf "%d: Make_sync_clause  %s \n") clstrl; flush stdout; *)
   let clstrl = List.filter (fun s -> not (s = "")) clstrl in
     let ctxgl =  string_count arr "G" in
     let ctxg = String.concat " " ctxgl in
