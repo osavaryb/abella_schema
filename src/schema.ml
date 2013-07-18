@@ -35,10 +35,7 @@ open Extensions
     - list of clauses, each consisting of
           * list of logic variables used in the clause
           * list of nominal vars
-          * list of blocks, each consisting of
-                  > list of logic variables passed to the block
-                  > list of nominal variables passed to the block
-                  > name of the block *)
+          * list of terms of type o *)
 
 type schemas = (id * (int * (((id*ty) list)*((id*ty) list)*(term list)) list)) list
 let schemas : schemas ref = ref []
@@ -56,6 +53,7 @@ let get_schema name =
 
 
 (* General Toolbox *)
+    
 
 (* split l:('a ,'b,'c) list into ('a list, 'b list, 'c list) *)
 let split3 l = 
@@ -114,6 +112,14 @@ end
 
 (* Schema toolbox *)
 
+
+let make_n_fresh_hyp n s = 
+  let (_ , hs) = List.fold_left (fun (hypctx, fns) hn -> 
+    let fhn = fresh_name hn  hypctx in
+    ((fhn, ())::hypctx , fhn::fns)) ((List.map (fun h -> (h.id, ())) sequent.hyps),[]) (string_count n s) in
+  hs
+
+
 (* return the name and type of every variables of tag "tag" occuring in term "tm" *)
 let get_vars tag tm =
 let varl = List.map (fun v -> (Term.(v.name), v.ty)) (find_vars tag [tm]) in
@@ -171,7 +177,7 @@ begin match observe tm with
 | Var v -> let vn = Term.(v.name) in
          begin try 
 	   let ety = lookup_const !sign vn in
-	   if (ty_to_string ty) <> (ty_to_string ety) then
+	   if ty <> ety then
 	     failwith ("in type_vars_in, constant "^(term_to_string tm)^" has type "^(ty_to_string ety)^" instead of expected type "^(ty_to_string ty)^". \n")
 	   else
 	     []
@@ -201,20 +207,6 @@ begin match observe tm with
 |  _ -> invalid_arg ("in type_vars_in, unhandled "^(term_to_string tm)^". \n")
 end
 
-
-(* TODEL get block and substitute variables names in it *)
-(*
-let get_block_sub (idsa,idsb,bid) =
- let (idtys1,idtys2,utm) = get_block bid in
- begin if (List.length idtys1 <> List.length idsa)||(List.length idtys2 <> List.length idsb) then
-    failwith (sprintf "Wrong number of arguments passed to block %s" bid) 
- else
-   let (ids1,tys1) = List.split idtys1 in
-   let (ids2,tys2) = List.split idtys2 in
-   let utm' = rename_ids_in_uterm (List.append (List.combine ids1 idsa) (List.combine ids2 idsb)) utm in
-   ((List.combine idsa tys1),(List.combine idsb tys2), utm')
- end 
-*)
 
 
 
@@ -648,8 +640,14 @@ let make_sync_stmt i id arr ids ads tm =
 
 
 let make_sync_prf ads = 
-let clstrl = List.map (fun (b,_) -> if b then "H4inv: case H2inv. search. apply IHinv to H3inv H4inv. search." else "H4inv: case H2inv. apply IHinv to H3inv H4inv. search.") ads in
- "IHinv: induction on 1. intros H1inv H2inv. H3inv: case H1inv. H4inv: case H2inv.\n"^(String.concat "\n" clstrl)
+  let hs = make_n_fresh_hyp  5 "Hinv" in
+let clstrl = List.map (
+  fun (b,_) -> if b then 
+    (sprintf "%s: case %s. search. apply %s to %s %s. search." (List.nth hs 4) (List.nth hs 2) (List.nth hs 0) (List.nth hs 3) (List.nth hs 4))
+  else 
+    (sprintf "%s: case %s. apply %s to %s %s. search." (List.nth hs 4) (List.nth hs 2) (List.nth hs 0) (List.nth hs 3) (List.nth hs 4))
+      ) ads in
+ (sprintf "%s: induction on 1. intros %s %s. %s: case %s. %s: case %s.\n" (List.nth hs 0) (List.nth hs 1) (List.nth hs 2) (List.nth hs 3) (List.nth hs 1) (List.nth hs 4) (List.nth hs 2))^(String.concat "\n" clstrl)
  
 
 
@@ -681,9 +679,9 @@ let make_inv_stmt i id arr ids  =
 
 (* i:int number of clause in the schema *)
 let make_inv_prf i =
-  let bsl = if i < 2 then " search. \n" else " case H5inv."^(str_repeat i " search.")^" \n" in
-  "IHinv: induction on 1. intros H1inv H2inv. H3inv : case H1inv. case H2inv."^(str_repeat i (" H4inv : case H2inv. search. H5inv: apply IHinv to H3inv H4inv."^bsl))
-
+  let hs = make_n_fresh_hyp  6 "Hinv" in
+  let bsl = if i < 2 then " search. \n" else " case "^(List.nth hs 5)^" ."^(str_repeat i " search.")^" \n" in
+  (sprintf "%s: induction on 1. intros %s %s. %s : case %s. case %s." (List.nth hs 0) (List.nth hs 1) (List.nth hs 2) (List.nth hs 3) (List.nth hs 1) (List.nth hs 2))^(str_repeat i (sprintf " %s : case %s. search. %s: apply %s to %s %s. %s" (List.nth hs 4) (List.nth hs 2) (List.nth hs 5) (List.nth hs 0) (List.nth hs 3) (List.nth hs 4) bsl))
 
 
 let rec safeUniqueGround mts ads cvar =
@@ -745,13 +743,14 @@ let make_uni_stmt id tm1 tm2 nl arr gi gv =
    ads:boolean list, ith is if the ith block of mts matches 
 *)
  let make_uni_prf id mts ads = 
-  let h1 =   "IHuni: induction on 1. intros H1uni H2uni H3uni. H4uni: case H1uni. case H2uni.\n" in
+  let hs = make_n_fresh_hyp  7 "Hinv" in
+  let h1 =   (sprintf "%s: induction on 1. intros %s %s %s. %s: case %s. case %s.\n" (List.nth hs 0) (List.nth hs 1) (List.nth hs 2) (List.nth hs 3) (List.nth hs 4) (List.nth hs 1) (List.nth hs 2)) in
   let h2l = List.map (fun (tm,b) -> 
    if b then
      let idtys2 = get_vars Nominal tm in
-     let (id2,ty2) = List.hd idtys2 in  (* TODO: is this a problem if more than one nablabound? *)
-  "H5uni: case H2uni. H6uni: case H3uni. search. apply member_prune_"^(ty_to_string ty2)^" to H6uni.\n"^"H6uni: case H3uni. apply member_prune_"^(ty_to_string ty2)^" to H5uni. apply IHuni to H4uni H5uni H6uni. search."
-  else  "H5uni:case H2uni. H6uni: case H3uni. apply IHuni to H4uni H5uni H6uni. search."
+     let (id2,ty2) = List.hd idtys2 in  
+  (sprintf "%s: case %s. %s: case %s. search. apply member_prune_%s to %s.\n %s: case %s. apply member_prune_%s to %s. apply %s to %s %s %s. search." (List.nth hs 5) (List.nth hs 2) (List.nth hs 6) (List.nth hs 3)(ty_to_string ty2) (List.nth hs 6) (List.nth hs 6) (List.nth hs 3) (ty_to_string ty2) (List.nth hs 5) (List.nth hs 0) (List.nth hs 4) (List.nth hs 5) (List.nth hs 6))
+  else  (sprintf "%s:case %s. %s: case %s. apply %s to %s %s %s. search." (List.nth hs 5) (List.nth hs 2) (List.nth hs 6) (List.nth hs 3) (List.nth hs 0) (List.nth hs 4) (List.nth hs 5) (List.nth hs 6))
 ) (List.combine mts ads) in
   h1^(String.concat "" h2l)
 
@@ -769,7 +768,8 @@ let exB =
 
 
 let make_proj_prf i  = 
- " IHinv: induction on 1. intros H1inv. H2inv: case H1inv. \n search. \n"^(str_repeat i "apply IHinv to H2inv. search. \n")
+  let hs = make_n_fresh_hyp  3 "Hinv" in
+ (sprintf " %s: induction on 1. intros %s. %s: case %s. \n search. \n" (List.nth hs 0) (List.nth hs 1) (List.nth hs 2) (List.nth hs 1))^(str_repeat i (sprintf "apply %s to %s. search. \n" (List.nth hs 0) (List.nth hs 2)))
  
 
 

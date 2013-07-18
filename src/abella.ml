@@ -681,25 +681,14 @@ let rec process () =
                 commit_global_consts local_sr local_sign ;
                 compile (CDefine(idtys, defs)) ;
                 add_defs ids Inductive defs
-(*        | Block (id,(ids1,ids2,ut)) ->  
-               check_noredef [id]; (* TODO: check block no redef *)
-	    let idtys = type_vars_in (uterm_to_term [] ut) (Ty( [], "o")) sign in
-	    let idtys = rem_rep_pairs idtys in
-	    let tys1 = List.map (fun id -> List.assoc id idtys) ids1 in
-	    let tys2 = List.map (fun id -> List.assoc id idtys) ids2 in 
-	    let proofStr = makeBlockGeneric tys1 tys2 in
-	    let idtys1 = List.combine ids1 tys1 in
-	    let idtys2 = List.combine ids2 tys2 in
-	    add_block id (idtys1,idtys2,ut);
-	      recursePOn proofStr *)
 	| Schema (id,cll) -> 
-    (* check that the name is fresh, *)
+           (* check that the name of the schema wasn't previous used *)
             check_noredef [id];
 	    if cll = [] then failwith "Can't declare an empty schema";
             (*verify that the arity is the same for every clause (save the result), *)
 		let arr = (fun (_,_,cl) -> List.length cl) (List.hd cll) in
 		List.iter (fun (_,_,cl) -> if arr = (List.length cl) then () else failwith (sprintf "All clauses of %s should have the same arity (%d)" id arr)) cll;
-	    (* in each clause, type all blocks *)
+	    (* in each clause, type each of the blocks *)
 		let clgenl = List.map (fun (eb,nb,cl) -> 
 		  let eb = List.unique eb in
 		  List.iter (fun id -> if not (id.[0] = Char.uppercase (id.[0])) then failwith ("Exists bound variables must start with an uppercase character, in declaration of "^id)) eb;
