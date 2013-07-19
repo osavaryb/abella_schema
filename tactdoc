@@ -24,15 +24,17 @@ inv.3 >  make inv statement & proof corresponding to the schema ctxName, for an 
 Naming: "Hinv"^[ name of the schema]^[ projection of the schema at which invert ]
 
 Statement:
-Disjunction of, for each of the clauses of the schema, 
+Given that G1, ..., Gn are projections of a schema ctxName
+-> Given that logic variable V is a (generic) member of the ith projection of ctxName
+-> Disjunction of, for each of the clauses of the schema, 
     Conjunction of, for every nabla and exists bound variable of the clause, fresh/name lemmas, and for each of the projections of the clauses,
       On ith projection, E is of the form introduced by the block.
       On any other projection, assert that a term of the form introduced by the projection of that clause is present in the right projection of the schema.
  
 
 Proof:
-By induction on the size of the projection of the schema. 
-  If 0, then case-analysis on the membership relation to reveals that E can't be a member of an empty Gi.
+By structural induction on the definition of the schema
+  If empty, then case-analysis on the membership relation to reveals that E can't be a member of an empty Gi.
   otherwise case-analyse the membership relation, 
       either it corresponds to the first element in the context, close with search.
       or it doesn't, apply I.H. on the rest of the context. If the context has many clauses, I.H. will return a disjunction, case-analyse it and close each with search, otherwise close with search.
@@ -54,7 +56,7 @@ High-level overview:
 
  syn.1 > verify that
        	 	  hyp1 = ctxName G1 ... Gn
-                  hyp2 = member E[X1,...Xm] Gi
+                  hyp2 = member E Gi
          for defined ctxName of arrity n,  1 < i < n, and some E:o.
  syn.2 > see which blocks, from the ith projection of ctxName, could match E
  syn.3 > See if a proof of sync was already done for that schema, for a statement matching the same clauses. If it is the case, return that schema name, otherwise continue.
@@ -64,13 +66,15 @@ High-level overview:
 
 Naming: "Hsync"^[name of the schema]^[projection of the schema at which we sync ]^[ bitmap of matched blocks ]
 
-Statement:
-Disjunction of, for each of the clauses matching E,
-	   Conjuction, for j between 1 and n, not equal to i, of the membership assumption "member Ej Gj" and of freshness assumptions for the variables present in the clause.
+Statement: 
+Given that G1, ... Gn are projections of a schema ctxName,
+-> Given that E is a member of the ith projections of ctxName,
+-> Then, for each of the clauses C which could have introduced E (i.e. that E matches the ith projection of the clause), one of the following is true:
+	      * E was introduced by C, so we know that, for j between i and n, the jth projection of the clause will be a member of the jth projection of the schema.
 
 Proof:
-By induction on the size of the projection of the schema. 
-  If 0, then case-analysis on the membership relation to reveals that E can't be a member of an empty Gi.
+By structural induction on the schema definition
+  If empty, then case-analysis on the membership relation to reveals that E can't be a member of an empty Gi.
   otherwise case-analyse the membership relation, 
      for each clauses in the schema,
          if the term could've been introduced by the clause, then either it's the first element, in which case search, o.w. I.H. and search
@@ -110,17 +114,24 @@ High-level overview:
 Naming: "Huni"^[name of the schema]^[projection of the schema at which unique is created]^[ground variable in the first matched block]^[ bitmap of matched blocks ]
 
 Statement:
-...
+Given that G1, ..., Gn are projections of a schema ctxName,
+-> Given that E1 is a member of the ith projection of ctxName, with free (logic) variables X,A1,...,Am
+-> Given that E1', a member of the ith projection of ctxName, of the same form as E1 with its logic variable renamed X,B1,...,Bm
+-> for j from 1 to m, Aj = Bj
 
 Proof:
-...
+By structural induction on the schema definition.
+ Can't be empty, as E1 and E1' are member of the ith projection
+ Then one of the clauses much have introduced the top element on the context
+    If E1 and E1' could match the ith projection of the clause, then it could be the top element,
+    in which case E1 = E1' as X is nabla bound in the ith projection of the clause. In any case, it could be member of the rest of the context, in which case we use the I.H. on it.
 
 
 
  -----------
 |   PROJ    |
  -----------
-Description: ...
+Description: The projas tactical verifies and proves relations between context schemas. It can be used both to project and inject projections of a schema to another schema.
 
 Syntax: 
 	"apply projas (ctxNameD D1 ... Dn) to H"
@@ -141,9 +152,10 @@ pro.4 > (rewrit ewith inj) make statement and proof that \forall G1 ... Gn,ctxNa
 Naming: "Hpro"^[name of the schema of origin]^[ map of the position in the destination context for each projection of the origin schema]^[name of the destination schema]
 
 Statement:
-Function to go from the origin context to the destination context. Projections of the origin context are universally quantified over, while projections of the destination context not included in the origin context are existentially quantified.
+Given that G1,...,Gm are projections of a schema ctxNameO, 
+-> then there exists D'1,...,D'p (the members of D1, ..., Dn which do not appear in G1,...,Gm),  which are projections of a schema ctxNameD
 
 Proof:
-Proof goes by induction on the length of the projection of the original schema. 
- if 0, then nil which is in both schema, close with search
- otherwise, for every clauses in the schema, apply the I.H. to the rest of the context, and search (for the right clause in the destination schema which matches the top element).
+Proof goes by structural induction on the definition of the original schema. 
+ if empty, then ctxNameD is also empty.
+ otherwise, for every clauses in the schema, apply the I.H. to the rest of the context, and search for the right clause in the destination schema which matches the top element.

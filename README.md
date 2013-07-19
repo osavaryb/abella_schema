@@ -1,3 +1,6 @@
+(19/07/2013)
+* Could add an extension.ml module to abella, and tactics "extname"."tactname" would be dispached to extension, which would then dispatch the tactic to the relevant extension.
+
 (18/07/2013) 
 * Blocks declaration are now inlined in schemas
 * Blocks are typed as they appear in schemas, and stored as typed term.

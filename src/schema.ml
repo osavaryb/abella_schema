@@ -113,6 +113,7 @@ end
 (* Schema toolbox *)
 
 
+(* returns a list of n fresh hypothesis name, using s as naming hint *)
 let make_n_fresh_hyp n s = 
   let (_ , hs) = List.fold_right (fun  hn (hypctx, fns) -> 
     let fhn = fresh_name hn  hypctx in
