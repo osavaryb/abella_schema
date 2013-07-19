@@ -74,6 +74,7 @@ type command =
   | Induction of int list * id option
   | CoInduction of id option
   | Apply of id * id list * (id * uterm) list * id option
+  | Plugin of id * id * id list * (id list) option
   | Backchain of id * (id * uterm) list
   | CutFrom of id * id * uterm * id option
   | Cut of id * id * id option
@@ -209,6 +210,11 @@ let command_to_string c =
           (String.concat " " (List.map string_of_int is))
     | CoInduction None -> "coinduction"
     | CoInduction (Some hn) -> "coinduction " ^ hn
+    | Plugin(pn,tn,args,opt) -> 
+	begin match opt with
+	|  None -> pn^"!"^tn^" "^(String.concat " " args)
+	| Some idl -> pn^"!"^tn^" ("^(String.concat " " idl)^") "^(String.concat " " args)
+	end
     | Apply(h, [], [], hn) ->
         sprintf "apply %s" h
     | Apply(h, hs, [], hn) ->

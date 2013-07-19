@@ -42,7 +42,7 @@
 
 %}
 
-%token IMP COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ
+%token IMP COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ BANG
 %token IND INST APPLY CASE FROM SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ SCHPRO
 %token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT BY
 %token SPLIT SPLITSTAR UNFOLD KEEP CLEAR SPECIFICATION SEMICOLON
@@ -270,12 +270,9 @@ nablaopt:
   | NABLA utbinding_list COMMA            { $2 }
   |                                      { [] }
 
-/*blockdef:
-  | existsopt nablaopt term               {($1,$2,$3)}
-| EXISTS binding_list COMMA NABLA binding_list COMMA term   {($2,$5,$7)} */
-
-/* {UBinding(Metaterm.Exists,[($2,Term.fresh_tyvar ())],UBinding(Metaterm.Nabla,[($5,Term.fresh_tyvar ())],UPred($7,Metaterm.Irrelevant)))}  */
-
+opt_perm:
+|  LPAREN perm_ids RPAREN                {Some $2}
+|                                        { None}
 
 perm:
   | LPAREN perm_ids RPAREN               { $2 }
@@ -331,6 +328,7 @@ pure_command:
   | MONOTONE hyp WITH term DOT                { Types.Monotone($2, $4) }
   | PERMUTE perm DOT                          { Types.Permute($2, None) }
   | PERMUTE perm hyp DOT                      { Types.Permute($2, Some $3) }
+  | STRINGID BANG STRINGID opt_perm hyp_list DOT           { Types.Plugin($1, $3, $5, $4) }
 
 hhint:
   | STRINGID COLON                       { Some $1 }

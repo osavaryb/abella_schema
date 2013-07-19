@@ -92,4 +92,4 @@ Schema bfctx := nabla n p, (bfree n, path n p).
 
 
 Theorem bfctxToCtx2: forall G D, bfctx G D -> (exists E, ctx2 E D).
-intros. apply projas (ctx2 E D) to H1. search.
+intros. Ctx ! proj (ctx2 E D) H1. search.

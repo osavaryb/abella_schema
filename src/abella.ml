@@ -28,6 +28,7 @@ open Debug
 open Accumulate
 open Schema
 
+
 let can_read_specification = ref true
 
 let interactive = ref true
@@ -43,6 +44,18 @@ let count = ref 0
 let witnesses = ref false
 
 exception AbortProof
+
+(* Plugins *)
+
+module type PLUGIN = sig 
+  val process_tactic : (string -> unit) -> id -> id list -> (id list option) -> unit
+end
+
+let plugins : (string, (module PLUGIN)) Hashtbl.t = Hashtbl.create 2
+
+let _ = Hashtbl.add plugins "Ctx" (module Schema : PLUGIN )
+
+
 
 (* Input *)
 
@@ -315,6 +328,11 @@ let import filename =
     end
 
 
+
+
+
+
+
 (* Proof processing *)
 
 let query q =
@@ -416,6 +434,10 @@ let rec process_proof name =
       begin match input with
       | Induction(args, hn) -> induction ?name:hn args
       | CoInduction hn -> coinduction ?name:hn ()
+      |	Plugin (pn, tn, hnl, optl ) ->  
+	  let (module Plug) = (try Hashtbl.find plugins pn
+                with Not_found -> failwith (sprintf "Unknown plugin %s.\n" pn)) in 
+	  Plug.process_tactic (recursePPOn ~quiet:true) tn hnl optl
    | Apply(h, args, ws, hn) -> 
   let (h,args) = begin match h with 
    | "inversion" ->
@@ -641,6 +663,8 @@ and recursePPOn ?quiet:(q=true) aStr =
    |  e -> out := !holdout; lexbuf := !holdbuf; printf "Error while recursePPOn %s \n" aStr; raise e  end
 
 
+
+
 let rec process () =
   try while true do try
     if !annotate then begin
@@ -798,6 +822,8 @@ and recursePOn ?quiet:(q=true) aStr =
    lexbuf := !holdbuf;
    ()
    with   e -> out := !holdout; lexbuf := !holdbuf; printf "Error while recursePOn %s \n" aStr; raise e  end 
+
+
 
 
 (* Command line and startup *)
