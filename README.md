@@ -1,3 +1,12 @@
+(19/07/2013) bis
+* Added generic tactic extension to abella, dispatches tactics of the form 
+ "plugName" ! "tactName" H1 ... Hn
+ or 
+ "plugName" ! "tactName" (id1 ... idn) H1 ... Hn
+to the module linked in plugins to plugName, where it will process the tactic tactName.
+* Currently both e.g. "Ctx ! inv" and "apply inversion to" are supported, although the support for the latter will be phased out as soon as the examples are converted.
+* Could do something similar for other syntax extension (e.g. Schema def)
+
 (19/07/2013)
 * Could add an extension.ml module to abella, and tactics "extname"."tactname" would be dispached to extension, which would then dispatch the tactic to the relevant extension.
 
