@@ -254,7 +254,6 @@ let rec patternMatch tm ptn  =
      else 
        (false, [])
  | App(th,tt), Var pv ->
-   (* TODO?: should also check that App is not A n1 n2... *)
    (* check if v is exists bound, then true, else [nabla bound or constant] false *)
       if Term.(pv.tag) = Logic then (true, [(Term.(pv.name), tm)]) else (false,[])
  | Lam(idtys,tm'), Lam(pidtys,ptn') ->  
@@ -405,7 +404,7 @@ let rec makeNameGeneric tys =
 begin match tys with
 | ty::tys' ->
     let tystr = ty_to_string ty in
-    let namename = tystr^"_name" in
+    let namename = "name_"^tystr in
     begin if H.mem defs_table namename then
       makeNameGeneric tys' 
     else
@@ -471,7 +470,7 @@ end
 *)
 let rec all_name idtys =
 begin match idtys with
-| (id,ty)::idtys' -> ((ty_to_string ty)^"_name"^" "^id)::(all_name idtys')
+| (id,ty)::idtys' -> ("name_"^(ty_to_string ty)^" "^id)::(all_name idtys')
 | [] -> []
 end
 
