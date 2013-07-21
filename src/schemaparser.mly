@@ -21,7 +21,7 @@
 
   open Typing
 
-  module Types = Abella_types
+  module Types = Schema_types
 
   let pos i =
     if i = 0 then
@@ -43,10 +43,11 @@
 %}
 
 %token IMP COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ BANG
-%token IND INST APPLY CASE FROM SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ
+%token SCHEMA INVERSION PROJECTION SYNC UNIQUE
+%token IND INST APPLY CASE FROM SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ SCHPRO
 %token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT BY
 %token SPLIT SPLITSTAR UNFOLD KEEP CLEAR SPECIFICATION SEMICOLON
-%token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY SHOW
+%token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY SHOW 
 %token PERMUTE BACKCHAIN QUIT UNDERSCORE AS SSPLIT RENAME
 %token COLON RARROW FORALL NABLA EXISTS STAR AT HASH OR AND 
 %token LBRACE RBRACE LBRACK RBRACK
@@ -54,7 +55,6 @@
 
 %token <int> NUM
 %token <string> STRINGID QSTRING
-%token <string> STRINGID BSTRING
 %token EOF
 
 /* Lower */
@@ -73,17 +73,11 @@
 /* Higher */
 
 
-%start term metaterm lpmod lpsig defs top_command command any_command sig_body mod_body
+%start term metaterm top_command command
 %type <Typing.uterm> term
 %type <Typing.umetaterm> metaterm
-%type <Abella_types.lpsig> lpsig
-%type <Abella_types.lpmod> lpmod
-%type <Abella_types.sig_decl list> sig_body
-%type <Abella_types.uclause list> mod_body
-%type <Abella_types.udef list> defs
-%type <Abella_types.command> command
-%type <Abella_types.top_command> top_command
-%type <Abella_types.any_command> any_command
+%type <Schema_types.top_command> top_command
+%type <Schema_types.command> command
 
 %%
 
@@ -136,6 +130,11 @@ id:
   | CLOSE                                { "Close" }
   | TTYPE                                { "Type" }
   | KKIND                                { "Kind" }
+  | SCHEMA                               { "Schema" }
+  | PROJECTION                           { "projas" }
+  | UNIQUE                               { "unique" }
+  | SYNC                                 { "sync"}
+  | INVERSION                            { "inversion"}
 
 /* Annotated ID */
 aid:
@@ -186,40 +185,7 @@ exp_list:
   | aid BSLASH term                      { let (id, ty) = $1 in
                                              [ULam(pos 0, id, ty, $3)] }
 
-lpsig:
-  | sig_header sig_preamble sig_body lpend
-                                         { Types.Sig($1, $2, $3) }
 
-sig_header:
-  | SIG id DOT                           { $2 }
-
-sig_preamble:
-  | ACCUMSIG id_list DOT sig_preamble    { $2 @ $4 }
-  |                                      { [] }
-
-sig_body:
-  | KIND id_list TYPE DOT sig_body       { Types.SKind($2) :: $5 }
-  | TYPE id_list ty DOT sig_body         { Types.SType($2, $3) :: $5 }
-  |                                      { [] }
-
-lpmod:
-  | mod_header mod_preamble mod_body lpend
-                                         { Types.Mod($1, $2, $3) }
-
-mod_header:
-  | MODULE id DOT                        { $2 }
-
-mod_preamble:
-  | ACCUM id_list DOT mod_preamble       { $2 @ $4 }
-  |                                      { [] }
-
-mod_body:
-  | clause mod_body                      { $1::$2 }
-  |                                      { [] }
-
-lpend:
-  | END                                  { }
-  |                                      { }
 
 
 sclause_list:
@@ -280,53 +246,14 @@ perm_ids:
   | id perm_ids                          { $1 :: $2 }
   | id                                   { [$1] }
 
-any_command:
-  | pure_top_command                     { Types.ATopCommand($1) }
-  | pure_command                         { Types.ACommand($1) }
-  | common_command                       { Types.ACommon($1) }
+
 
 command:
-  | pure_command                         { $1 }
-  | common_command                       { Types.Common($1) }
-
-pure_command:
-  | hhint IND ON num_list DOT                 { Types.Induction($4, $1) }
-  | hhint COIND DOT                           { Types.CoInduction($1) }
-  | hhint APPLY id TO hyp_list DOT            { Types.Apply($3, $5, [], $1) }
-  | hhint APPLY id TO hyp_list WITH withs DOT { Types.Apply($3, $5, $7, $1) }
-  | hhint APPLY id WITH withs DOT             { Types.Apply($3, [], $5, $1) }
-  | hhint APPLY id DOT                        { Types.Apply($3, [], [], $1) }
-  | BACKCHAIN id DOT                          { Types.Backchain($2, []) }
-  | BACKCHAIN id WITH withs DOT               { Types.Backchain($2, $4) }
-  | hhint CUT LPAREN term RPAREN FROM hyp WITH hyp DOT
-                                              { Types.CutFrom($7,$9,$4,$1) }
-  | hhint CUT hyp WITH hyp DOT                { Types.Cut($3, $5, $1) }
-  | hhint CUT hyp DOT                         { Types.SearchCut($3, $1) }
-  | hhint INST hyp WITH withs DOT             { Types.Inst($3, $5, $1) }
-  | hhint CASE hyp DOT                        { Types.Case($3, false, $1) }
-  | hhint CASE hyp LPAREN KEEP RPAREN DOT     { Types.Case($3, true, $1) }
-  | hhint ASSERT metaterm DOT                 { Types.Assert($3, $1) }
-  | EXISTS term DOT                           { Types.Exists($2) }
-  | SEARCH DOT                                { Types.Search(None) }
-  | SEARCH NUM DOT                            { Types.Search(Some $2) }
-  | SPLIT DOT                                 { Types.Split }
-  | SPLITSTAR DOT                             { Types.SplitStar }
-  | LEFT DOT                                  { Types.Left }
-  | RIGHT DOT                                 { Types.Right }
-  | INTROS DOT                                { Types.Intros [] }
-  | INTROS hyp_list DOT                       { Types.Intros($2) }
-  | SKIP DOT                                  { Types.Skip }
-  | ABORT DOT                                 { Types.Abort }
-  | UNDO DOT                                  { Types.Undo }
-  | UNFOLD DOT                                { Types.Unfold }
-  | CLEAR hyp_list DOT                        { Types.Clear($2) }
-  | ABBREV hyp QSTRING DOT                    { Types.Abbrev($2, $3) }
-  | UNABBREV hyp_list DOT                     { Types.Unabbrev($2) }
-  | RENAME STRINGID TO STRINGID DOT           { Types.Rename($2, $4) }
-  | MONOTONE hyp WITH term DOT                { Types.Monotone($2, $4) }
-  | PERMUTE perm DOT                          { Types.Permute($2, None) }
-  | PERMUTE perm hyp DOT                      { Types.Permute($2, Some $3) }
-  | STRINGID BSTRING                          { Types.TacPlugin($1,$2)}
+  | INVERSION hyp_list DOT                    { Schema_types.Inversion($2)}
+  | PROJECTION LPAREN perm_ids RPAREN hyp_list DOT    { Schema_types.Projection($3,$5)}
+  | UNIQUE hyp_list DOT                       { Schema_types.Unique($2)}
+  | SYNC hyp_list DOT                         { Schema_types.Sync($2)}
+  | EOF                                       { raise End_of_file }
 
 hhint:
   | STRINGID COLON                       { Some $1 }
@@ -408,28 +335,9 @@ id_tys:
   | id_ty COMMA id_tys                   { $1::$3 }
   | id_ty                                { [$1] }
 
+
 top_command:
-  | pure_top_command                     { $1 }
-  | common_command                       { Types.TopCommon($1) }
+  | SCHEMA id DEFEQ sclause_list DOT          { Schema_types.SchemaDef($2,$4) }
+  | EOF                                       { raise End_of_file }
 
-pure_top_command:
-  | THEOREM id COLON metaterm DOT        { Types.Theorem($2, $4) }
-  | DEFINE id_tys BY defs DOT            { Types.Define($2, $4) }
-  | CODEFINE id_tys BY defs DOT          { Types.CoDefine($2, $4) }
-  | QUERY metaterm DOT                   { Types.Query($2) }
-  | IMPORT QSTRING DOT                   { Types.Import($2) }
-  | SPECIFICATION QSTRING DOT            { Types.Specification($2) }
-  | KKIND id_list TYPE DOT               { Types.Kind($2) }
-  | TTYPE id_list ty DOT                 { Types.Type($2, $3) }
-  | CLOSE id_list DOT                    { Types.Close($2) }
-  | SSPLIT id DOT                        { Types.SSplit($2, []) }
-  | SSPLIT id AS id_list DOT             { Types.SSplit($2, $4) }
-  | STRINGID BSTRING            { Types.TopPlugin($1,$2)}
 
-common_command:
-  | SET id id DOT                        { Types.Set($2, Types.Str $3) }
-  | SET id NUM DOT                       { Types.Set($2, Types.Int $3) }
-  | SET id QSTRING DOT                   { Types.Set($2, Types.QStr $3) }
-  | SHOW id DOT                          { Types.Show($2) }
-  | QUIT DOT                             { Types.Quit }
-  | EOF                                  { raise End_of_file }

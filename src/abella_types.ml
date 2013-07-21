@@ -59,7 +59,8 @@ type top_command =
   | Close of id list
   | SSplit of id * id list
   | TopCommon of common_command
-  | Schema of id * (id list * id list * uterm list) list
+  | TopPlugin of id * string
+(*  | Schema of id * (id list * id list * uterm list) list *)
 
 type compiled =
   | CTheorem of id * metaterm
@@ -74,7 +75,7 @@ type command =
   | Induction of int list * id option
   | CoInduction of id option
   | Apply of id * id list * (id * uterm) list * id option
-  | Plugin of id * id * id list * (id list) option
+  | TacPlugin of id * string
   | Backchain of id * (id * uterm) list
   | CutFrom of id * id * uterm * id option
   | Cut of id * id * id option
@@ -160,6 +161,8 @@ let top_command_to_string tc =
     | Define(idtys, udefs) ->
         sprintf "Define %s by \n%s"
           (idtys_to_string idtys)  (udefs_to_string udefs) ;
+    | TopPlugin(pn,st) ->
+	pn^"!"^st^"!"
     | CoDefine(idtys, udefs) ->
         sprintf "CoDefine %s by \n%s"
           (idtys_to_string idtys) (udefs_to_string udefs) ;
@@ -180,13 +183,13 @@ let top_command_to_string tc =
           sprintf "Split %s as %s" id (id_list_to_string ids)
         else
           sprintf "Split %s" id
-    | Schema (id, cll) ->
+(*    | Schema (id, cll) ->
 	let clstr = List.map (fun (a,b,c) -> 
 	        let cstr = List.map uterm_to_string c in
 		let astr = if a = [] then "" else "exists "^(String.concat " " a)^", " in
 		let bstr = if a = [] then "" else "nabla "^(String.concat " " b)^", " in
 		astr^bstr^" ("^(String.concat ", " cstr)^")") cll in
-         sprintf "Schema %s := %s" id (String.concat ";\n " clstr)
+         sprintf "Schema %s := %s" id (String.concat ";\n " clstr) *)
     | TopCommon(cc) ->
         common_command_to_string cc
 
@@ -210,11 +213,8 @@ let command_to_string c =
           (String.concat " " (List.map string_of_int is))
     | CoInduction None -> "coinduction"
     | CoInduction (Some hn) -> "coinduction " ^ hn
-    | Plugin(pn,tn,args,opt) -> 
-	begin match opt with
-	|  None -> pn^"!"^tn^" "^(String.concat " " args)
-	| Some idl -> pn^"!"^tn^" ("^(String.concat " " idl)^") "^(String.concat " " args)
-	end
+    | TacPlugin(pn,st) ->
+	pn^"!"^st^"!"
     | Apply(h, [], [], hn) ->
         sprintf "apply %s" h
     | Apply(h, hs, [], hn) ->

@@ -18,7 +18,7 @@
 (****************************************************************************)
 
 {
-  open Parser
+  open Schemaparser
   open Lexing
 
   let incrline lexbuf =
@@ -50,8 +50,6 @@ rule token = parse
 
 | '"' ([^ '"']* as s) '"'
                      { QSTRING s }
-| '!' ([^ '!']* as s) '!'
-                    { BSTRING s}
 
 | "kind"             { KIND }
 | "type"             { TYPE }
@@ -63,6 +61,7 @@ rule token = parse
 | "accum_sig"        { ACCUMSIG }
 | "accumulate"       { ACCUM }
 | "end"              { END }
+| "!"                { BANG}
 | "=>"               { IMP }
 | ":-"               { CLAUSEEQ }
 | ":="               { DEFEQ }
@@ -88,7 +87,6 @@ rule token = parse
 | "Theorem"          { THEOREM }
 | "Define"           { DEFINE }
 | "CoDefine"         { CODEFINE }
-
 | "Query"            { QUERY }
 | "Import"           { IMPORT }
 | "Specification"    { SPECIFICATION }
@@ -133,6 +131,13 @@ rule token = parse
 | "monotone"         { MONOTONE }
 | "permute"          { PERMUTE }
 | "rename"           { RENAME }
+
+| "Schema"           { SCHEMA }
+| "projas"           { PROJECTION }
+| "unique"           { UNIQUE }
+| "sync"             { SYNC }
+| "inversion"        { INVERSION }
+
 
 | "Set"              { SET }
 | "Show"             { SHOW }

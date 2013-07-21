@@ -25,9 +25,11 @@ open Abella_types
 open Printf
 open Prover
 open Extensions
+open Schema_types
 
 
-
+(* Lex/parse buff *)
+let slexbuf = ref (Lexing.from_string "")
 
 
 (* name of schema associated to
@@ -49,6 +51,7 @@ let add_schema name schema =
 let get_schema name =
  try List.assoc name !schemas 
  with Not_found -> failwith (sprintf "Block %s undefined." name)
+
 
 
 
@@ -111,6 +114,13 @@ end
 
 
 (* Schema toolbox *)
+
+let check_noredef ids =
+  let (_, ctable) = !sign in
+    List.iter (
+      fun id -> if List.mem id (List.map fst ctable) then
+        failwith (sprintf "%s is already defined" id)
+    ) ids
 
 
 (* returns a list of n fresh hypothesis name, using s as naming hint *)
@@ -762,9 +772,14 @@ let make_proj_prf i  =
 
 
 (* Schema Plugin *)
-let process_tactic recursePPOn tacticName args optidl = 
-begin match tacticName with
-   | "inversion" ->
+
+let process_tactic rPPO st =
+  let finished = ref false in
+  slexbuf := Lexing.from_string st;
+    begin try while not !finished do try
+      let input = Schemaparser.command Schemalexer.token !slexbuf in
+      begin match input with
+      | Inversion args ->
 (* inv.1 *) 
        begin match (get_hyp (List.hd args), get_hyp (List.hd (List.tl args))) with
        | Pred ( t, r), Pred (t1, _ ) ->
@@ -773,18 +788,20 @@ begin match tacticName with
 	   begin try
 	     let _ = get_hyp hypName in
 	     let appStr = "\n apply "^hypName^" to "^(String.concat " " args)^" ." in
-	     recursePPOn appStr
+	     rPPO appStr
 	   with  _ -> 
 	     let (arr, bids) = get_schema schName in
 (* inv.3 *)  let invThmStr = make_inv_stmt gi schName arr bids  in
 	     let invPrfStr = make_inv_prf (List.length bids) in
 	     let appStr = "\n apply "^hypName^" to "^(String.concat " " args)^" ." in
 	     let aStr = hypName^": assert "^invThmStr^invPrfStr^appStr in
-	     recursePPOn  aStr
+	     try 
+	       rPPO  aStr
+	     with e -> printf "failed while rec in inv. \n"; raise e
 	   end
        | _,_ -> failwith "unexpected in inversion" 
        end
- | "sync" -> 
+ | Sync args -> 
 (* syn.1 *)
    begin match (get_hyp (List.hd args), get_hyp (List.hd (List.tl args))) with
    | Pred ( t, _), Pred (t1, _ ) ->
@@ -799,7 +816,7 @@ begin match tacticName with
    begin try
      let _ = get_hyp hypName in
      let appStr = "\n apply "^hypName^" to "^(String.concat " " args)^" ." in
-     recursePPOn appStr
+     rPPO appStr
 
    with  _ -> 
 (* syn.4 *)
@@ -813,9 +830,9 @@ begin match tacticName with
    let syncPrfStr = make_sync_prf ads in 
    let appStr = "\n apply "^hypName^" to "^(String.concat " " args)^" ." in
    let aStr = hypName^" : assert "^syncThmStr^syncPrfStr^appStr in
-   recursePPOn  aStr end
+   rPPO  aStr end
    | _ , _ -> failwith " unexpected in sync" end  
-  |  "unique" ->
+  |  Unique args ->
 (* uni.1 *)      let (h0,h1,h2) = ( try (get_hyp (List.nth args 0), 
 					 get_hyp (List.nth args 1),
 					 get_hyp (List.nth args 2))
@@ -838,7 +855,7 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
          	  begin try
                      let _ = get_hyp hypName in
 	     let appStr = "\n apply "^hypName^" to "^(String.concat " " args)^" ." in
-	     recursePPOn appStr
+	     rPPO appStr
 
                   with  _ -> 
 (* uni.7 *)       let vvts = List.filter (fun (cmts, (b,_)) -> b) (List.combine mts ads) in
@@ -855,14 +872,14 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
                   let uniPrfStr = make_uni_prf schName mts bads in
 		  let appStr = "\n apply "^hypName^" to "^(String.concat " " args)^" ." in
 		  let aStr = hypName^" : assert "^uniThmStr^uniPrfStr^appStr in
-		  recursePPOn aStr end
+		  rPPO aStr end
 	     | _ -> failwith "Schema: arguments in the wrong form for 'unique' tactical"
 	     end  
-  |  "proj" -> 
+  |  Projection (argsd,args) -> 
 (* pro.1 *)  
 (*        ((if List.length hl < 3 then failwith "Schema: Not enough argument for projas"); *)
-	let schNameD = List.hd (Option.get optidl) in
-	let schDs = List.tl (Option.get optidl) in
+	let schNameD = List.hd (argsd) in
+	let schDs = List.tl (argsd) in
 	(begin match (get_hyp (List.hd args)) with 
 	| Pred (t,_) -> 
 	    (begin match observe t with
@@ -889,7 +906,7 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
 	       begin try 
 		 let _ = get_hyp hypName in
 		 let appStr = "\n apply "^hypName^" to "^(String.concat " " args)^" ." in
-		 recursePPOn appStr
+		 rPPO appStr
 	       with _ ->
 (* pro.3 *)    let (_,_,btmsO) = split3 bidsO in
 	       let clConsO = proClConst schOs btmsO in
@@ -899,16 +916,72 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
 	       let projPrfStr =  make_proj_prf (List.length bidsO) in
 	       let appStr = "\n apply "^hypName^" to "^(String.concat " " args)^" ." in
 	       let aStr =  hypName^" : assert "^projThmStr^projPrfStr^appStr in
-	       recursePPOn aStr
+	       rPPO aStr
 	       end
 	    | _ -> failwith "Schema: Unexpected in projas (1)" 
 	    end)
 	| _ -> failwith "Schema: Unexpected in projas (2)"
-	end) 
-  |   _ -> failwith (sprintf "Unexpected tactic %s in Schema plugin" tacticName)
-end
+	end) end
+    with 
+    | End_of_file -> failwith "eof"
+    | Parsing.Parse_error ->
+        eprintf "Syntax error in Schema plugin (process_tactic) %s.\n%!" st;
+        Lexing.flush_input !slexbuf ;
+	exit 0
+    | e -> (eprintf "Error %s while processing command %s in Schema plugin. \n" (Printexc.to_string e) st); exit 0
+    done with
+      | Failure "eof" -> ()
+    end
 
 
 
 
 
+
+let process_top rPO st = 
+  let finished = ref false in
+  slexbuf := Lexing.from_string st;
+    begin try while not !finished do try
+      let input = Schemaparser.top_command Schemalexer.token !slexbuf in
+      begin match input with
+      | SchemaDef (id,cll) -> 
+           (* check that the name of the schema wasn't previous used *)
+            check_noredef [id];
+	    if cll = [] then failwith "Can't declare an empty schema";
+            (*verify that the arity is the same for every clause (save the result), *)
+		let arr = (fun (_,_,cl) -> List.length cl) (List.hd cll) in
+		List.iter (fun (_,_,cl) -> if arr = (List.length cl) then () else failwith (sprintf "All clauses of %s should have the same arity (%d)" id arr)) cll;
+	    (* in each clause, type each of the blocks *)
+		let clgenl = List.map (fun (eb,nb,cl) -> 
+		  let eb = List.unique eb in
+		  List.iter (fun id -> if not (id.[0] = Char.uppercase (id.[0])) then failwith ("Exists bound variables must start with an uppercase character, in declaration of "^id)) eb;
+		  let nb = List.unique nb in
+		  let (ebidtys,nbidtys) = List.fold_left (fun (ebit,nbit) ut ->
+		       let vlist = type_vars_in (uterm_to_term [] ut) (Ty( [], "o")) sign in
+		       let (ebit',nbit') = List.partition (fun (id,ty) -> List.mem id eb) vlist in
+		       List.iter (fun (id,ty) -> if not (List.mem id nb) then failwith ("Schema: Unknown constant "^id^"\n")) nbit';
+	(append_uni_assocs ebit ebit', append_uni_assocs nbit nbit')) ([],[]) cl in
+		  let (_,tys1) = List.split ebidtys in
+		  let (_,tys2) = List.split nbidtys in
+		  let genStr = makeBlockGeneric tys1 tys2 in
+		  let ebctx = tyctx_to_logical_ctx ebidtys in
+		  let nbctx = tyctx_to_nominal_ctx nbidtys in
+		  let tyctx = List.append ebctx nbctx in
+		  let clt = List.map (fun ut -> type_uterm ~sr:!sr ~sign:!sign ~ctx:tyctx ut) cl in
+		  ((ebidtys,nbidtys,clt),genStr)) cll in
+		let (cll',genl) = List.split clgenl in
+		let genStr = String.concat " \n" genl in
+		add_schema id (arr, cll');
+		let cdef = make_schema_def id arr cll' in
+		rPO  (cdef^" \n "^genStr);
+      end
+    with 
+    | End_of_file -> failwith "eof"
+    | Parsing.Parse_error ->
+        eprintf "Syntax error in Schema plugin (process_top) %s.\n%!" st;
+        Lexing.flush_input !slexbuf ;
+	exit 0
+    | e -> (eprintf "Error %s while processing top command %s in Schema plugin. \n" (Printexc.to_string e) st); exit 0
+    done with
+      | Failure "eof" -> ()
+    end

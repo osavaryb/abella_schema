@@ -48,7 +48,8 @@ exception AbortProof
 (* Plugins *)
 
 module type PLUGIN = sig 
-  val process_tactic : (string -> unit) -> id -> id list -> (id list option) -> unit
+  val process_tactic : (string -> unit) -> string -> unit
+  val process_top : (string -> unit) -> string -> unit
 end
 
 let plugins : (string, (module PLUGIN)) Hashtbl.t = Hashtbl.create 2
@@ -434,147 +435,11 @@ let rec process_proof name =
       begin match input with
       | Induction(args, hn) -> induction ?name:hn args
       | CoInduction hn -> coinduction ?name:hn ()
-      |	Plugin (pn, tn, hnl, optl ) ->  
+      |	TacPlugin (pn, st) -> 
 	  let (module Plug) = (try Hashtbl.find plugins pn
                 with Not_found -> failwith (sprintf "Unknown plugin %s.\n" pn)) in 
-	  Plug.process_tactic (recursePPOn ~quiet:true) tn hnl optl
-   | Apply(h, args, ws, hn) -> 
-  let (h,args) = begin match h with 
-   | "inversion" ->
-(* inv.1 *) 
-       begin match (get_hyp (List.hd args), get_hyp (List.hd (List.tl args))) with
-       | Pred ( t, r), Pred (t1, _ ) ->
-	   let (schName, gi, _) = member_of_ith t t1 in
-(* inv.2 *)let hypName = "Hinv"^schName^(string_of_int gi) in
-	   begin try
-	     let _ = get_hyp hypName in
-	     (hypName, args)
-	   with  _ -> 
-	     let (arr, bids) = get_schema schName in
-(* inv.3 *)  let invThmStr = make_inv_stmt gi schName arr bids  in
-	     let invPrfStr = make_inv_prf (List.length bids) in
-	     let aStr = hypName^": assert "^invThmStr^invPrfStr in
-	     recursePPOn ~quiet:false aStr;
-	     (hypName, args)
-	   end
-       | _,_ -> failwith "unexpected in inversion" 
-       end
- | "sync" -> 
-(* syn.1 *)
-   begin match (get_hyp (List.hd args), get_hyp (List.hd (List.tl args))) with
-   | Pred ( t, _), Pred (t1, _ ) ->
-   let (schName,gi,st) = member_of_ith t t1 in
-   let (arr, bids) = get_schema schName in
-(* syn.2 *)
-   let mts = List.map (fun (a,b,tml) -> List.nth tml (gi-1)) bids in
-   let ads = instOfPats st mts in
-(* syn.3 *)
-   let adsHashl = List.map (fun (b,_) -> if b then "1" else "0") ads in
-   let hypName = "Hsync"^schName^(string_of_int gi)^(String.concat "" adsHashl) in
-   begin try
-     let _ = get_hyp hypName in
-     (hypName, args)
-   with  _ -> 
-(* syn.4 *)
-   let vvts = List.filter (fun (cmts, (b,_)) -> b) (List.combine mts ads) in
-   if vvts = [] then failwith (sprintf "Schema: in sync, no clauses of %s can introduce a formula of the form %s. \n" schName (term_to_string st));
-   let (tlup,pads) = List.split vvts in
-   List.iter (Unify.left_unify (List.hd tlup)) (List.tl tlup);
-   let ads = instOfPats (List.hd tlup) mts in
-(* syn.5 *)
-   let syncThmStr = make_sync_stmt gi schName arr bids ads (List.hd tlup) in
-   let syncPrfStr = make_sync_prf ads in 
-   let aStr = hypName^" : assert "^syncThmStr^syncPrfStr in
-   recursePPOn  aStr; (hypName, args) end
-   | _ , _ -> failwith " unexpected in sync" end  
-  |  "unique" ->
-(* uni.1 *)      let (h0,h1,h2) = ( try (get_hyp (List.nth args 0), 
-					 get_hyp (List.nth args 1),
-					 get_hyp (List.nth args 2))
-with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
-             begin match (h0,h1,h2) with
-	     | Pred(t,_),Pred(t1,_),Pred(t2,_) ->
-	 let (schName , gi ,te1) = (member_of_ith t t1) in
-	 let (schName', gi',te2) = (member_of_ith t t2) in
-	 (if  (gi <> gi' || schName <> schName') then failwith "Schema: membership hypothesis should come from the same projection of the context in 'unique' tactical");
-		  let (arr,bids) = get_schema schName in
-		  let mts = List.map (fun (a,b,tml) -> (List.nth tml (gi-1))) bids  in
-(* uni.2 *)       let varl = pairwiseEqual te1 te2 in
-
-(* uni.3 *)       Unify.left_unify te1 te2; 
-
-(* uni.4 *)       let ads = instOfPats te1 mts in
-(* uni.5 *)       let (groundVar, rel) = safeUniqueGrounds mts ads varl in
-(* uni.6 *)       let adsHashl = List.map (fun (b,_) -> if b then "1" else "0") ads in
-                  let hypName = "Huni"^schName^(string_of_int gi)^(List.hd rel)^(String.concat "" adsHashl) in
-         	  begin try
-                     let _ = get_hyp hypName in
-		     (hypName, args)
-                  with  _ -> 
-(* uni.7 *)       let vvts = List.filter (fun (cmts, (b,_)) -> b) (List.combine mts ads) in
-                  let (pmts,pads) = List.split vvts in
-
-
-		  let tlup = List.map (fun (tm,oldid) -> 
-		    let gvSwap = ((groundVar,oldid)::[(oldid,groundVar)]) in
-		    (rename_ids_in_term gvSwap tm)) (List.combine pmts rel) in
-		  List.iter (Unify.left_unify (List.hd tlup)) (List.tl tlup);
-(* uni.8 *)      let (nl,tu1,tu2) = uniteTerms (List.hd tlup) (List.hd tlup) 0 groundVar in
-		  let (bads,_) = List.split ads in
-		  let uniThmStr = make_uni_stmt schName tu1 tu2 nl arr gi groundVar in
-                  let uniPrfStr = make_uni_prf schName mts bads in
-		  let aStr = hypName^" : assert "^uniThmStr^uniPrfStr in
-		  recursePPOn aStr; (hypName,args) end
-	     | _ -> failwith "Schema: arguments in the wrong form for 'unique' tactical"
-	     end  
-  |  "projas" -> 
-(* pro.1 *)  
-(*        ((if List.length hl < 3 then failwith "Schema: Not enough argument for projas"); *)
-	let schNameD = List.hd (List.tl args) in
-	let schDs = List.tl (List.tl args) in
-	(begin match (get_hyp (List.hd args)) with 
-	| Pred (t,_) -> 
-	    (begin match observe t with
-	    | App(schNameT,schGsTl) ->
-	       let schNameO = term_to_string schNameT in
-	       let schOs = List.map get_head_id schGsTl in
-	       (if (List.mem_assoc schNameO Prover.(!schemas)) then
-		 if (List.mem_assoc schNameD Prover.(!schemas)) then
-		   ()
-		 else failwith ("Schema: "^schNameD^" is not a declared schema.")
-	       else failwith ("Schema: "^schNameO^" is not a declared schema."));
-	       let (arrD,bidsD) = get_schema schNameD in
-	       let (arrO,bidsO) = get_schema schNameO in
-	       (if (List.length schOs) = arrO then 
-		 if (List.length schDs) = arrD then 
-		   ()
-		 else failwith (sprintf "Schema: %d arguments expected for schema %s." arrD schNameD)
-	       else failwith (sprintf "Schema: %d arguments expected for schema %s." arrO schNameO));
-(* pro.2 *)    let odPerm = List.map (fun id -> 
-                                    try 
-				      string_of_int (mem_pos id schDs)
-				    with _ -> "0") schOs in
-	       let hypName = "Hpro"^schNameO^(String.concat "" odPerm)^schNameD in
-	       begin try 
-		 let _ = get_hyp hypName in
-		 (hypName, [List.hd args])
-	       with _ ->
-(* pro.3 *)    let (_,_,btmsO) = split3 bidsO in
-	       let clConsO = proClConst schOs btmsO in
-               let (_,_,btmsD) = split3 bidsD in
-                checkProMatches clConsO schDs btmsD;   
-(* pro.4 *)    let projThmStr =  make_proj_stmt schNameO schOs schNameD schDs in
-	       let projPrfStr =  make_proj_prf (List.length bidsO) in
-	       let aStr =  hypName^" : assert "^projThmStr^projPrfStr in
-	       recursePPOn aStr; (hypName, [List.hd args])
-	       end
-	    | _ -> failwith "Schema: Unexpected in projas (1)" 
-	    end)
-	| _ -> failwith "Schema: Unexpected in projas (2)"
-	end) 
-  |   _ ->
-      (h,args)
-  end in 
+	  Plug.process_tactic (recursePPOn) st
+   | Apply(h, args, ws, hn) ->  
      apply ?name:hn h args ws ~term_witness;
       | Backchain(h, ws) -> backchain h ws ~term_witness
       | Cut(h, arg, hn) -> cut ?name:hn h arg
@@ -705,36 +570,10 @@ let rec process () =
                 commit_global_consts local_sr local_sign ;
                 compile (CDefine(idtys, defs)) ;
                 add_defs ids Inductive defs
-	| Schema (id,cll) -> 
-           (* check that the name of the schema wasn't previous used *)
-            check_noredef [id];
-	    if cll = [] then failwith "Can't declare an empty schema";
-            (*verify that the arity is the same for every clause (save the result), *)
-		let arr = (fun (_,_,cl) -> List.length cl) (List.hd cll) in
-		List.iter (fun (_,_,cl) -> if arr = (List.length cl) then () else failwith (sprintf "All clauses of %s should have the same arity (%d)" id arr)) cll;
-	    (* in each clause, type each of the blocks *)
-		let clgenl = List.map (fun (eb,nb,cl) -> 
-		  let eb = List.unique eb in
-		  List.iter (fun id -> if not (id.[0] = Char.uppercase (id.[0])) then failwith ("Exists bound variables must start with an uppercase character, in declaration of "^id)) eb;
-		  let nb = List.unique nb in
-		  let (ebidtys,nbidtys) = List.fold_left (fun (ebit,nbit) ut ->
-		       let vlist = type_vars_in (uterm_to_term [] ut) (Ty( [], "o")) sign in
-		       let (ebit',nbit') = List.partition (fun (id,ty) -> List.mem id eb) vlist in
-		       List.iter (fun (id,ty) -> if not (List.mem id nb) then failwith ("Schema: Unknown constant "^id^"\n")) nbit';
-	(append_uni_assocs ebit ebit', append_uni_assocs nbit nbit')) ([],[]) cl in
-		  let (_,tys1) = List.split ebidtys in
-		  let (_,tys2) = List.split nbidtys in
-		  let genStr = makeBlockGeneric tys1 tys2 in
-		  let ebctx = tyctx_to_logical_ctx ebidtys in
-		  let nbctx = tyctx_to_nominal_ctx nbidtys in
-		  let tyctx = List.append ebctx nbctx in
-		  let clt = List.map (fun ut -> type_uterm ~sr:!sr ~sign:!sign ~ctx:tyctx ut) cl in
-		  ((ebidtys,nbidtys,clt),genStr)) cll in
-		let (cll',genl) = List.split clgenl in
-		let genStr = String.concat " \n" genl in
-		add_schema id (arr, cll');
-		let cdef = make_schema_def id arr cll' in
-		recursePOn  (cdef^" \n "^genStr)
+	| TopPlugin(pn, st) ->	  
+	    let (module Plug) = (try Hashtbl.find plugins pn
+            with Not_found -> failwith (sprintf "Unknown plugin %s.\n" pn)) in 
+	    Plug.process_top recursePOn st
         | CoDefine(idtys, udefs) ->
             let ids = List.map fst idtys in
               check_noredef ids;
