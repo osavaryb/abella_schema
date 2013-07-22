@@ -51,16 +51,6 @@ rule token = parse
 | '"' ([^ '"']* as s) '"'
                      { QSTRING s }
 
-| "kind"             { KIND }
-| "type"             { TYPE }
-| "Kind"             { KKIND }
-| "Type"             { TTYPE }
-| "Close"            { CLOSE }
-| "sig"              { SIG }
-| "module"           { MODULE }
-| "accum_sig"        { ACCUMSIG }
-| "accumulate"       { ACCUM }
-| "end"              { END }
 | "!"                { BANG}
 | "=>"               { IMP }
 | ":-"               { CLAUSEEQ }
@@ -77,20 +67,9 @@ rule token = parse
 
 | ":"                { COLON }
 | "->"               { RARROW }
-| "forall"           { FORALL }
 | "nabla"            { NABLA }
 | "exists"           { EXISTS }
-| "*"                { STAR }
-| "@"                { AT }
-| "#"                { HASH }
-| "+"                { PLUS }
-| "Theorem"          { THEOREM }
-| "Define"           { DEFINE }
-| "CoDefine"         { CODEFINE }
-| "Query"            { QUERY }
-| "Import"           { IMPORT }
-| "Specification"    { SPECIFICATION }
-| "Split"            { SSPLIT }
+
 | "\\/"              { OR }
 | "/\\"              { AND }
 | "{"                { LBRACE }
@@ -100,37 +79,6 @@ rule token = parse
 | "true"             { TRUE }
 | "false"            { FALSE }
 
-| "induction"        { IND }
-| "coinduction"      { COIND }
-| "apply"            { APPLY }
-| "backchain"        { BACKCHAIN }
-| "inst"             { INST }
-| "cut"              { CUT }
-| "from"             { FROM }
-| "case"             { CASE }
-| "search"           { SEARCH }
-| "to"               { TO }
-| "with"             { WITH }
-| "on"               { ON }
-| "by"               { BY }
-| "as"               { AS }
-| "split"            { SPLIT }
-| "split*"           { SPLITSTAR }
-| "left"             { LEFT }
-| "right"            { RIGHT }
-| "unfold"           { UNFOLD }
-| "intros"           { INTROS }
-| "skip"             { SKIP }
-| "abort"            { ABORT }
-| "undo"             { UNDO }
-| "assert"           { ASSERT }
-| "keep"             { KEEP }
-| "clear"            { CLEAR }
-| "abbrev"           { ABBREV }
-| "unabbrev"         { UNABBREV }
-| "monotone"         { MONOTONE }
-| "permute"          { PERMUTE }
-| "rename"           { RENAME }
 
 | "Schema"           { SCHEMA }
 | "projas"           { PROJECTION }
@@ -139,9 +87,6 @@ rule token = parse
 | "inversion"        { INVERSION }
 
 
-| "Set"              { SET }
-| "Show"             { SHOW }
-| "Quit"             { QUIT }
 
 | "_"                { UNDERSCORE }
 | number as n        { NUM (int_of_string n) }

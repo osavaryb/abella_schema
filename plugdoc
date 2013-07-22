@@ -16,9 +16,9 @@ command :=
   Plugins are module implementing
    process_top: (string -> unit) -> string -> unit
    process_tactic: (string -> unit) -> string -> unit
+  Plugins name must be linked with their implementation by adding an entry in the Abella.plugins hashtbl.
 
 e.g. For the Ctx plugin, schema are defined as
      Ctx ! Schema schName := ... . !
-and tacticals are applied
-    Theorem ... =
-    	    intros. Ctx! inversion H1 H2. ! search.
+and tacticals are applied, inside a proof, as 
+    Ctx! inversion H1 H2. !

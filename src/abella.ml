@@ -510,7 +510,7 @@ let rec process_proof name =
           interactive_or_exit ()
     done with
       | Failure "eof" -> ()
-(* schema ext *)
+(* plugin entry point *)
 and recursePPOn ?quiet:(q=true) aStr = 
   if aStr = "" then () else 
   if not q then printf "/* %s */" aStr;
@@ -648,6 +648,7 @@ let rec process () =
         interactive_or_exit ()
   done with
   | Failure "eof" -> ()
+(* plugin entry point *)
 and recursePOn ?quiet:(q=true) aStr = 
   if aStr = "" then () else 
   if not q then printf "/* %s */" aStr;
