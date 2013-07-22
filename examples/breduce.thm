@@ -87,6 +87,9 @@ intros. case H2 (keep).
      apply IH to H1 H9 H3. search.
 
 
+/* end of the first section of breduce */
+
+
 Ctx!
 Schema bfctx := nabla n p, (bfree n, path n p). !
 

@@ -53,7 +53,6 @@ rule token = parse
 
 | "!"                { BANG}
 | "=>"               { IMP }
-| ":-"               { CLAUSEEQ }
 | ":="               { DEFEQ }
 | ","                { COMMA }
 | "."                { DOT }
@@ -70,8 +69,6 @@ rule token = parse
 | "nabla"            { NABLA }
 | "exists"           { EXISTS }
 
-| "\\/"              { OR }
-| "/\\"              { AND }
 | "{"                { LBRACE }
 | "}"                { RBRACE }
 | "["                { LBRACK }
@@ -89,7 +86,6 @@ rule token = parse
 
 
 | "_"                { UNDERSCORE }
-| number as n        { NUM (int_of_string n) }
 | name as n          { STRINGID n }
 
 | eof                { EOF }

@@ -44,13 +44,10 @@
 
 %token IMP COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ BANG
 %token SCHEMA INVERSION PROJECTION SYNC UNIQUE
-%token CLAUSEEQ SCHPRO SEMICOLON UNDERSCORE
-%token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY SHOW OR AND
+%token SEMICOLON UNDERSCORE
 %token COLON RARROW FORALL NABLA EXISTS 
 %token LBRACE RBRACE LBRACK RBRACK
-%token KIND TYPE KKIND TTYPE SIG MODULE ACCUMSIG ACCUM END CLOSE
 
-%token <int> NUM
 %token <string> STRINGID QSTRING
 %token EOF
 
@@ -58,8 +55,6 @@
 
 %nonassoc COMMA
 %right RARROW
-%left OR
-%left AND
 
 %nonassoc BSLASH
 %right IMP
@@ -148,14 +143,6 @@ ty:
   | ty RARROW ty                         { Term.tyarrow [$1] $3 }
   | LPAREN ty RPAREN                     { $2 }
 
-clause:
-  | term DOT                             { ($1, []) }
-  | term CLAUSEEQ clause_body DOT        { ($1, $3) }
-
-clause_body:
-  | term COMMA clause_body               { $1::$3 }
-  | LPAREN term COMMA clause_body RPAREN { $2::$4 }
-  | term                                 { [$1] }
 
 existsopt:
   | EXISTS utbinding_list COMMA            { $2 }
