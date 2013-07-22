@@ -1,0 +1,24 @@
+Documentation for generic plugin extension for Abella
+by Olivier Savary-B
+
+
+The generic plugins extension to Abella allows user to create syntax extensions, macros and other tacticals without modifying the source file of the prover. Expressions are dispatched to plugins by writing the name of the plugin, followed by the expression enclosed between exclamation marks ("!"). The expression is parsed as a string, and dispatched either to process_top, if it appears at the top level of an abella file, or to process_tactic if it appears as a command (i.e. inside a theorem). process_top and process_tactic also receive a function which, given a string,  parses and process it using respectively Abella.process and Abella.process_proof.
+
+top_command :=
+ | ...
+ | [plugin name] ! [ string ] !
+
+command :=
+ | ...
+ | [plugin name] ! [ string ] !
+
+
+  Plugins are module implementing
+   process_top: (string -> unit) -> string -> unit
+   process_tactic: (string -> unit) -> string -> unit
+
+e.g. For the Ctx plugin, schema are defined as
+     Ctx ! Schema schName := ... . !
+and tacticals are applied
+    Theorem ... =
+    	    intros. Ctx! inversion H1 H2. ! search.
