@@ -133,9 +133,7 @@ let make_n_fresh_hyp n s =
 
 (* return the name and type of every variables of tag "tag" occuring in term "tm" *)
 let get_vars tag tm =
-let varl = List.map (fun v -> (Term.(v.name), v.ty)) (find_vars tag [tm]) in
-List.fold_left (fun varl' (id,ty) -> if (List.mem_assoc id varl' ) then varl' else (id,ty)::varl') [] varl
-
+  List.map (fun v -> (Term.(v.name), v.ty)) (find_vars tag [tm])
 
 
 
@@ -305,50 +303,38 @@ let makeDummyVars nl =
       (i, Term.(var Constant v1n max_int (Ty([],"err"))), Term.(var Constant v2n max_int (Ty([],"err"))))
 
 (* make two terms with new variables Ai...Ai+n,Bi...Bi+1 leaving constants and "X" untouched *)
-let rec uniteTerms t1 t2 nl v = 
+let rec uniteTerms t nl v = 
    let (_,ctable) = !sign in
-   begin match observe (hnorm t1),observe (hnorm t2) with
-   | App (th1,tt1),App(th2,tt2) ->  
-   begin if List.mem_assoc (term_to_string th1) ctable || List.mem_assoc (term_to_string th2) ctable then 
-   let (nl,th1',th2') = uniteTerms th1 th2 nl v in
-   let (nl,tt1',tt2') = (List.fold_right (fun (t1,t2) (nl, t1l,t2l) ->  
-                             let (nl',t1',t2') =  uniteTerms t1 t2 nl v in
+   begin match observe (hnorm t) with
+   | App (th1,tt1) ->  
+   begin if List.mem_assoc (term_to_string th1) ctable then 
+   let (nl,th1',th2') = uniteTerms th1 nl v in
+   let (nl,tt1',tt2') = (List.fold_right (fun (t1) (nl, t1l,t2l) ->  
+                             let (nl',t1',t2') =  uniteTerms t1 nl v in
                                  (nl', t1'::t1l,t2'::t2l))
-            (List.combine tt1 tt2) (nl,[],[])) in
+            (tt1) (nl,[],[])) in
    (nl, (app  th1' tt1'), (app th2' tt2'))
    else 
     makeDummyVars nl
    end 
-   | Var v1 ,App(th2,tt2) -> 
-   begin if List.mem_assoc (term_to_string th2) ctable then
-   failwith (sprintf "Can't unify %s with %s in uniteTerms" (term_to_string t2) (Term.(v1.name))) 
-   else 
-    makeDummyVars nl
-   end
-   | App (th1,tt1), Var v2 -> 
-   begin if List.mem_assoc (term_to_string th1) ctable then
-   failwith (sprintf "Can't unify %s with %s in uniteTerms" (Term.(v2.name)) (term_to_string t1) ) 
-   else 
-    makeDummyVars nl
-   end
-   | Var v1, Var v2 ->
-   begin if (term_to_string t1 = v) || List.mem_assoc Term.(v1.name) ctable then 
-     (nl,t1,t2)
+   | Var v1 ->
+   begin if (Term.(v1.name) = v) || List.mem_assoc Term.(v1.name) ctable then 
+     (nl,t,t)
    else
  begin if Term.(v1.tag = Nominal) then
         (nl,Term.(var Constant "" max_int (Ty([],"err"))), Term.(var Constant "" max_int (Ty([],"err")))) else
      let i = nl+1 in
      let v1n = "A"^(string_of_int i) in
      let v2n = "B"^(string_of_int i) in
-      (i , Term.(var v1.tag v1n v1.ts v1.ty), Term.(var v2.tag v2n v2.ts v2.ty)) 
+      (i , Term.(var v1.tag v1n v1.ts v1.ty), Term.(var v1.tag v2n v1.ts v1.ty)) 
 end
  end
-   | Lam (idtys1, tm1'), Lam (idtys2,tm2') -> 
-      let (nl, tu1', tu2') =  uniteTerms tm1' tm2' nl v in
-      (nl, lambda idtys1 tu1',lambda idtys2 tu2')
-   | DB i, DB j -> if (i = j) then (nl, t1, t2) else failwith "Can't unify terms, bound variables are different"
-   | _ , _ ->  
- invalid_arg (sprintf "unexpected %s and %s in uniteTerms" (term_to_string t1) (term_to_string t2)) 
+   | Lam (idtys1, tm1') -> 
+      let (nl, tu1', tu2') =  uniteTerms tm1'  nl v in
+      (nl, lambda idtys1 tu1',lambda idtys1 tu2')
+   | DB _ -> (nl, t, t)
+   | _ ->  
+ invalid_arg (sprintf "unexpected %s in uniteTerms" (term_to_string t)) 
    end
 
 
@@ -866,7 +852,7 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
 		    let gvSwap = ((groundVar,oldid)::[(oldid,groundVar)]) in
 		    (rename_ids_in_term gvSwap tm)) (List.combine pmts rel) in
 		  List.iter (Unify.left_unify (List.hd tlup)) (List.tl tlup);
-(* uni.8 *)      let (nl,tu1,tu2) = uniteTerms (List.hd tlup) (List.hd tlup) 0 groundVar in
+(* uni.8 *)      let (nl,tu1,tu2) = uniteTerms (List.hd tlup) 0 groundVar in
 		  let (bads,_) = List.split ads in
 		  let uniThmStr = make_uni_stmt schName tu1 tu2 nl arr gi groundVar in
                   let uniPrfStr = make_uni_prf schName mts bads in
