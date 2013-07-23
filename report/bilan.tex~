@@ -1,0 +1,57 @@
+\documentclass{article}
+%\usepackage{fullpage}
+\usepackage[style=authoryear,natbib=true]{biblatex}
+\usepackage{filecontents}
+\usepackage{proof,enumerate,graphicx}
+\usepackage{amsmath, amssymb}
+%\usepackage{color}
+\usepackage{exscale}
+\usepackage{verbatim}
+\usepackage{listings}
+\usepackage{multicol}
+ \usepackage{stmaryrd}
+\usepackage{url}
+\usepackage{latexsym}
+\usepackage{colonequals}
+
+\title{...}
+
+\author{Olivier Savary-Belanger}
+
+
+
+\begin{document}
+
+%Introduction]
+Abella (cite) is an interactive theorem prover developed in collaboration at INRIA and U. of Michigan. A formal development in Abella usually consists of:
+\begin{itemize}
+\item a specification portion, where the meta-theory of the studied systems are defined,
+\item a reasoning portion, where theorems about the specifications are stated and proved using provided tactics to construct the theorem conclusion from its assumptions.
+A specificity of Abella that the logic make the distinction between logical abstraction, provided by $\forall$ and $\exists$, and nominal abstraction, introduced by $\nabla$. Terms in Abella are equivalent up to renaming of their nominal variables. 
+[..]
+We developed a plugin for Abella introducing Schemas, which restricts context definitions to a well-behaved fragment, and tactics stating, proving and applying theorems which always hold for context defined in our fragment. This greatly reduces the amount of boilerplate code needed for contextual reasoning in Abella. 
+
+%Top_command
+Simple Contexts, as defined in our plugin, can be described a star of finite sum of clauses, each of which adds a formula that can introduce some nominal and some existencialy bound variables(talk about dependencies),  on top of the context. N-ary context relations, where formulas introduced in  n different simple contexts can depends on the same variables, can also be represented. N-ary context relations are represented using n lists of formulas, each clause corresponding to a constructor stating that, given such context relations, adding the formulas in the clauses in front of their respective list relate the extended lists. An additional constructor corresponding relating empty contexts is added to every context relation.
+
+%Command
+The tactics introduced by our plugin are:
+\begin{itemize}
+\item Inversion, which states that we can characterize members of the contexts by one of the clauses which could have introduced them
+\item Synchronize, which states that given a member of a context in a context relation, clauses which could have introduced that term introduced at the same time corresponding members in the other projections of the context relation.
+\item Unique, which states that two members of a context sharing nominal variables should be equal.
+\item Projection, which helps reusing contexts in different context relations by verifying projection and injection theorems.
+\end{itemize}
+
+%Related work
+An important design decision of our development is the theorem generated are proved using the provided tactics of Abella, and checked as regular theorems. This means that no logical inconsistency can be introduced by our plugin. This contrasts with theorem provers providing primitive notions of context, such as Twelf(cite) and Beluga(cite), where the properties we prove with our new tactics are part of the trusted code base.
+
+%Plugin extension
+The extension we describe adds both top level commands and tactics to Abella. Instead of modifying the parser and main function to support the new functionalities, we deviced a plugin framework where an arbitrary expression can be dispatched to a particular plugin from an Abella source file. Plugins are implemented as modules implementating a processing function for string received from the top level of the source file, and another processing function for string received as reasoning command. Each processing function also receives a function which allows to recursively process strings as if their appeared in their respective position in the source file. Processing function at the reasoning command level can be related to tacticals languages such as Ltac(cite), which permits Coq user to develop procedures which applies tactics in function of current goal. In comparison, we allow arbitrary, potentially unsafe Ocaml code in the plugin, with the restriction that the only entry point back in the prover is the passed function.
+
+
+%Conclusion
+In summary, we gave the posibility for Abella users...
+
+
+\end{document}

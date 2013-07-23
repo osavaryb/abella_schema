@@ -1,0 +1,15 @@
+@INPROCEEDINGS{gacek08ijcar,
+  author = {Andrew Gacek},
+  title = {The {A}bella Interactive Theorem Prover (System
+                  Description)},
+  year = 2008,
+  month = {August},
+  booktitle = {Proceedings of IJCAR 2008},
+  pages = {154--161},
+  publisher = {Springer},
+  series = {Lecture Notes in Artificial Intelligence},
+  volume = 5195,
+  editor = {A. Armando and P. Baumgartner and G. Dowek},
+  pdf = {http://arxiv.org/pdf/0803.2305.pdf},
+  slides = {http://www.cs.umn.edu/~agacek/pubs/slides/gacek08ijcar-slides.pdf}
+}
