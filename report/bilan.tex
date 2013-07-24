@@ -14,7 +14,59 @@
 \usepackage{latexsym}
 \usepackage{colonequals}
 
-\title{Reasoning with contexts in Abella}
+\renewcommand{\t}[1]{{\fontsize{1.0\zzlistingsize}{1.05\zzlistingsize}\texttt{#1}}}
+
+% Set up listings "literate" keyword stuff (for \lstset below)
+\newdimen\zzlistingsize
+\newdimen\zzlistingsizedefault
+\zzlistingsizedefault=8pt
+\zzlistingsize=\zzlistingsizedefault
+\global\def\InsideComment{0}
+\newcommand{\Lstbasicstyle}{\fontsize{\zzlistingsize}{1.05\zzlistingsize}\ttfamily}
+\newcommand{\keywordFmt}{\fontsize{0.9\zzlistingsize}{1.0\zzlistingsize}\bf}
+\newcommand{\smartkeywordFmt}{\if0\InsideComment\keywordFmt\fi}
+\newcommand{\commentFmt}{\def\InsideComment{1}\fontsize{0.95\zzlistingsize}{1.0\zzlistingsize}\rmfamily\slshape}
+
+\newcommand{\LST}{\setlistingsize{\zzlistingsizedefault}}
+
+\newlength{\zzlstwidth}
+\newcommand{\setlistingsize}[1]{\zzlistingsize=#1%
+\settowidth{\zzlstwidth}{{\Lstbasicstyle~}}}
+\setlistingsize{\zzlistingsizedefault}
+\renewcommand{\bar}{\overline}
+
+\lstset{literate={->}{{$\rightarrow~$}}2 %
+                 {=>}{{$\Rightarrow~$}}2 %
+                 {id}{{{\smartkeywordFmt id}}}1 % 3 $~$
+                 {\\Gamma}{{$\Gamma$}}1 %
+                 {\\Pi}{{$\Pi$}}1 %
+                 {\\Sigma}{{$\Sigma$}}1 %
+                 {\\Pibox}{{$\Pibox$}}1 %
+                 {\\psi}{{$\psi$}}1 %
+                 {\\phi}{{$\phi$}}1 %
+                 {\\sigma}{{$\sigma$}}1 %
+                 {\\gamma}{{$\gamma$}}1 %
+                 {mlam}{{$\lambda^{\scriptscriptstyle\Box}$}}1 %
+%                 {mlam}{{$\lambda$}}1 %
+                 {FN}{{$\Lambda$}}1 %
+                 {<<}{\color{dGreen}}1 %
+                 {>>}{\color{black}}1 %
+               ,
+               columns=[l]fullflexible,
+               basewidth=\zzlstwidth,
+               basicstyle=\Lstbasicstyle,
+               keywordstyle=\keywordFmt,
+               identifierstyle=\relax,
+               xleftmargin=20pt,
+%               stringstyle=\relax,
+               commentstyle=\commentFmt,
+               breaklines=true,
+               breakatwhitespace=true,   % doesn't do anything (?!)
+               mathescape=true
+               }
+
+
+\title{Automated reasoning with contexts in Abella}
 
 
 \authorinfo{Olivier Savary-Belanger}
@@ -31,36 +83,111 @@
 \begin{document}
 \maketitle
 %Introduction
-Abella \cite{abellasys} is an interactive theorem prover developed in collaboration at INRIA Saclay and U. of Minnesota. A formal development in consists of:
+Abella \cite{abellasys} is an interactive theorem prover developed in collaboration at INRIA Saclay and U. of Minnesota. A formal development in Abella consists of:
 \begin{itemize}
 \item a specification file, where the meta-theory of the studied systems are defined,
 \item a reasoning file, where theorems about the specifications are stated and proved using provided tactics to construct the theorem conclusion from its assumptions.
 \end{itemize}
 
-Abella allows for higher-order reasoning; terms may introduced assumption to a list representing the local context of assumption. It however doesn't provide specific facilities to define context, such as regular worlds in Twelf \cite{twelfsys} and schemas \cite{belugasys}. Instead, users need to define a predicate characterizing which assumptions can appear in the context, and prove a number of structural theorems to reason about members of such context.
+Abella allows for higher-order reasoning; terms may introduced assumptions to a local context of assumptions, represented as a list. It however doesn't provide specific facilities to define context, such as regular worlds in Twelf \cite{twelfsys} and schemas \cite{belugasys}. Instead, users need to define a proposition characterizing which assumptions can appear in the context, and prove a number of structural theorems to reason about members of such context.
 
-% A specificity of Abella that the logic make the distinction between logical abstraction, provided by $\forall$ and $\exists$, and nominal abstraction, introduced by $\nabla$. An important pro perty of nominal variables is that two different nominal variables cannot be unified. 
 
-We developed a plugin for Abella introducing Schema, which restricts context definitions to a well-behaved fragment, and tactics stating, proving and applying theorems which always hold for context defined in our fragment. This greatly reduces the amount of boilerplate code needed for contextual reasoning in Abella. 
+We developed a plugin for Abella introducing Schema, which restricts context definitions to a well-behaved fragment, and tactics stating, automatically proving and applying theorems which always hold for context defined in our fragment. This greatly reduces the amount of boilerplate code needed for contextual reasoning in Abella. We will use the definition and lemmas about the context relation \lstinline|ctx2|, used in \lstinline|bredure.thm| from the Abella example suite,  as a working example.
+
+\begin{lstlisting}
+Define ctx2 : olist -> olist -> prop by
+  ctx2 nil nil
+; nabla x p,
+    ctx2 (bred x x :: G) (path x p :: D) := 
+      ctx2 G D
+; nabla x,
+    ctx2 ((pi u\ bred N u => bred x u) :: G)
+         ((pi q\ path N q => path x q) :: D) :=
+      ctx2 G D.
+\end{lstlisting}
 
 %Top_command
-Contexts, as defined in our plugin, can be described a star of finite sum of clauses, each of which adds a formula that can introduce some nominal and some existentially bound variables(talk about dependencies),  on top of the context. N-ary context relations, where formulas introduced in  n different contexts can depends on the same variables, can also be represented. N-ary context relations are represented using n lists of formulas, each clause corresponding to a constructor stating that, given such context relations, adding the formulas in the clauses in front of their respective list relate the extended lists. An additional constructor corresponding relating empty contexts is added to every context relation.
+Contexts, as defined in our plugin, can be described zero or more applications of a finite sum of clauses, each of which adding a formula on top of the context. We restrict the quantification of variables in the formulas as a serie of existential quantifiers ($\exists$) followed by $\nabla$s. N-ary context relations, where formulas introduced in  n different contexts can depends on the same variables, can also be represented using our extension. N-ary context relations are represented using n lists of formulas, each clause corresponding to a constructor stating that, given such context relations, adding the formulas in the clauses in front of their respective list relate the extended lists. An additional constructor corresponding relating empty contexts is added to every context relation. The definition of \lstinline|ctx2| as a context relation schema is given below.
+
+\begin{lstlisting}
+Ctx !
+Schema ctx2 := nabla x p, (bred x x, path x p);
+               exists N, nabla x, ((pi u\ bred N u => bred x u), (pi q\ path N q => path x q)). !
+\end{lstlisting}
+
 
 %Command
 The tactics introduced by our plugin are:
 \begin{itemize}
-\item Inversion, which states that we can characterize members of the contexts by one of the clauses which could have introduced them
+\item Inversion, which states that we can characterize members of the contexts by one of the clauses which could have introduced them. Inversion theorems also provide informations about the nominal nature of the $\nabla$-bound variables, and about the formulas introduced in the other projections of the context relation.
+
+\begin{lstlisting}
+Theorem ctx2_mem_G :
+forall G D F,
+  ctx2 G D -> member F G ->
+  ((exists p x, 
+    member (path x p) D $\wedge$
+    F = bred x x $\wedge$  
+    name_p p $\wedge$ name_tm x)
+  $\vee$
+   (exists N x, 
+    member (pi q\ path N q => path x q) D $\wedge$ 
+    F = (pi u\ bred N u => bred x u) $\wedge$  
+    fresh_tm_in_tm x N)).
+intros Hctx  Hmem. 
+Ctx ! inversion Hctx Hmem.! 
+search.
+\end{lstlisting}
+
 \item Synchronize, which states that given a member of a context in a context relation, clauses which could have introduced that term introduced at the same time corresponding members in the other projections of the context relation.
-\item Unique, which states that two members of a context sharing nominal variables should be equal.
-\item Projection, which helps reusing contexts in different context relations by verifying projection and injection theorems.
+\begin{lstlisting}
+Theorem ctx2_uniform :
+  forall G D X, nabla n,
+  ctx2 G D ->
+  member (pi u\ bred X u => bred n u) G ->
+  (member (pi q\ path X q => path n q) D $\wedge$ fresh_tm_in_tm n X).
+intros Hctx Hmem. 
+Ctx ! sync Hctx Hmem. ! 
+search.
+\end{lstlisting}
+
+\item Unique, which states that two members of a context sharing nominal variables should be equal. This is because we restrict the logical variables to be bound before the nominal variables introduced in each clauses, such that a particular nominal variable can only appear in a single instance of a clause in a context relation.   
+
+\begin{lstlisting}
+Theorem member_D_determinate :
+   forall G D X Y, nabla n,
+   ctx2 G D ->
+   member (pi q\ path X q => path n q) D ->
+   member (pi q\ path Y q => path n q) D ->
+   X = Y.
+intros Hctx Hmem1 Hmem2. 
+Ctx ! unique Hctx Hmem1 Hmem2. ! 
+search.
+\end{lstlisting}
+
+\item Projection, which helps reusing contexts in different context relations by verifying and applying projection and injection theorems. The $i$th context relations \lstinline|S| can be used as the $j$th projection of a context relations \lstinline|S'| if, for each clauses \lstinline|C| of \lstinline|S|, there exists a clause \lstinline|C'| of \lstinline|S'| s.t. the $j$th formula of \lstinline|C'| matches the $i$th formula of \lstinline|C|.
+\begin{lstlisting}
+Ctx!
+Schema bctx := nabla n p, (bfree n, path n p). !
+
+
+Theorem bctxToCtx2: forall G D, bctx G D -> (exists E, ctx2 E D).
+intros Hctx. 
+Ctx ! projas (ctx2 E D) Hctx. ! 
+search.
+\end{lstlisting}
+
+
 \end{itemize}
-These tactics eliminates most of the boilerplate lemmas present in the Abella example suite developments. For examples, using our plugin to rewrite the $bredure$ example eliminates half of the lines of code in the reasoning ($.thm$) file. Due additional context relations and mappings between context relations are present in bigger developments, we believe the provided tactics can significantly reduce the size of Abella development using reasoning with contexts.
+These tactics eliminates most of the boilerplate lemmas present in the Abella example suite developments. For examples, using our plugin to rewrite the $bredure$ example eliminates half of the lines of code in the reasoning ($.thm$) file. As additional context relations and mappings between context relations are present in bigger developments, we believe the provided tactics can significantly reduce the size of Abella development using reasoning with contexts.
+
+All the theorems proved by the tacticals could be proved directly at the moment of schema definition (or at the second schema definition in the case of projection). However, to reduce the number of theorems polluting the environment, we state and prove them as needed, selecting the required theorem by observing the assumptions to which the tactical is applied. Proven theorems are kept until the end of the proof in which the tactical was used to avoid having reproving repetitive application of tacticals to similar hypothesis. Each theorem can also be named by stating it and using a tactical to prove it, as shown in each of the included example use of tacticals.
 
 %Related work
-An important design decision of our development is the theorem generated are proved using the provided tactics of Abella, and checked as regular theorems. This means that no logical inconsistency can be introduced by our plugin. This contrasts with theorem provers providing primitive notions of context, such as Twelf \cite{twelfsys} and Beluga \cite{belugasys}, where the properties we prove with our new tactics are part of the trusted code base.
+An important design decision of our development is the theorem generated are proved using the provided tactics of Abella, and checked as regular theorems. Consequently, no logical inconsistency can be introduced by our plugin. This contrasts with theorem provers providing primitive notions of context, such as Twelf \cite{twelfsys} and Beluga \cite{belugasys}, where the properties proven with our new tactics are part of the trusted code base.
 
 %Plugin extension
-The extension we describe adds both top level commands and tactics to Abella. Instead of modifying the parser and main function to support the new functionality, we devised a plugin framework where an arbitrary expression can be dispatched to a particular plugin from an Abella source file. Plugins are implemented as modules implementing a processing function for string received from the top level of the source file, and another processing function for string received as reasoning command. Each processing function also receives a function which allows to recursively process strings as if their appeared in their respective position in the source file. Processing function at the reasoning command level can be related to tacticals languages such as Ltac \cite{ltacpap}, which permits Coq user to develop procedures which applies tactics in function of current goal. In comparison, we allow arbitrary, potentially unsafe Ocaml code in the plugin, with the restriction that the only entry point back in the prover is the passed function. In the future, one would like to provide functions for plugins to safely interact with the prover, which could culminate in a language to define extensions and tacticals from within Abella source files.
+The extension we describe adds both top level commands and tactics to Abella. Instead of modifying the parser and main function to support the new functionality, we devised a plugin framework where an arbitrary expression can be dispatched to a particular plugin from an Abella source file. Plugins are implemented as modules implementing a processing function for string received from the top level of the source file, and another processing function for string received as reasoning command. Each processing function also receives a function which allows to recursively process strings as if their appeared in their respective position in the source file. Processing function at the reasoning command level can be related to tacticals languages such as Ltac \cite{ltacpap}, which permits Coq user to develop procedures which applies tactics in function of current goal. In comparison, we allow arbitrary, potentially unsafe Ocaml code in the plugin, with the restriction that the only entry point back in the prover is the passed function. In the future, one would like to provide functions for plugins to safely interact with the prover, for example observing the current goal and assumptions, which could culminate in a language to define extensions and tacticals from within Abella source files. 
 
 
 \bibliographystyle{abbrvnat}
