@@ -92,8 +92,16 @@ Abella \cite{abellasys} is an interactive theorem prover developed in collaborat
 Abella allows for higher-order reasoning; terms may introduced assumptions to a local context of assumptions, represented as a list. It however doesn't provide specific facilities to define context, such as regular worlds in Twelf \cite{twelfsys} and schemas \cite{belugasys}. Instead, users need to define a proposition characterizing which assumptions can appear in the context, and prove a number of structural theorems to reason about members of such context.
 
 
-We developed a plugin for Abella introducing Schema, which restricts context definitions to a well-behaved fragment, and tactics stating, automatically proving and applying theorems which always hold for context defined in our fragment. This greatly reduces the amount of boilerplate code needed for contextual reasoning in Abella. We will use the definition and lemmas about the context relation \lstinline|ctx2|, used in \lstinline|bredure.thm| from the Abella example suite,  as a working example.
-
+We developed a plugin for Abella introducing Schema, which restricts context definitions to a well-behaved fragment, and tactics stating, automatically proving and applying theorems which always hold for context defined in our fragment. This greatly reduces the amount of boilerplate code needed for contextual reasoning in Abella. We will use the definition and lemmas about the context relation \lstinline|ctx2|, used in \lstinline|bredure|, from the Abella example suite,  as a working example.
+\begin{lstlisting}
+kind tm   type.
+...
+kind p type.
+...
+type bred tm -> tm -> o.
+type path tm -> p -> o.
+type bfree tm -> o.
+\end{lstlisting}
 \begin{lstlisting}
 Define ctx2 : olist -> olist -> prop by
   ctx2 nil nil
@@ -112,7 +120,9 @@ Contexts, as defined in our plugin, can be described zero or more applications o
 \begin{lstlisting}
 Ctx !
 Schema ctx2 := nabla x p, (bred x x, path x p);
-               exists N, nabla x, ((pi u\ bred N u => bred x u), (pi q\ path N q => path x q)). !
+               exists N, nabla x, 
+                 ((pi u\ bred N u => bred x u), 
+                 (pi q\ path N q => path x q)). !
 \end{lstlisting}
 
 
@@ -179,7 +189,7 @@ search.
 
 
 \end{itemize}
-These tactics eliminates most of the boilerplate lemmas present in the Abella example suite developments. For examples, using our plugin to rewrite the $bredure$ example eliminates half of the lines of code in the reasoning ($.thm$) file. As additional context relations and mappings between context relations are present in bigger developments, we believe the provided tactics can significantly reduce the size of Abella development using reasoning with contexts.
+These tactics eliminates most of the boilerplate lemmas present in the Abella example suite developments. For example, using our plugin to rewrite the $bredure$ example eliminates half of the lines of code in the reasoning ($.thm$) file. As additional context relations and mappings between context relations are present in bigger developments, we believe the provided tactics can significantly reduce the size of Abella development using reasoning with contexts.
 
 All the theorems proved by the tacticals could be proved directly at the moment of schema definition (or at the second schema definition in the case of projection). However, to reduce the number of theorems polluting the environment, we state and prove them as needed, selecting the required theorem by observing the assumptions to which the tactical is applied. Proven theorems are kept until the end of the proof in which the tactical was used to avoid having reproving repetitive application of tacticals to similar hypothesis. Each theorem can also be named by stating it and using a tactical to prove it, as shown in each of the included example use of tacticals.
 
