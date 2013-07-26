@@ -86,8 +86,8 @@
 
 Abella \cite{abellasys} is an interactive theorem prover developed in a collaboration between INRIA Saclay Ile-de-France and U. of Minnesota. A formal development in Abella consists of:
 \begin{itemize}
-\item a specification file, where the meta-theory of the studied systems are defined,
-\item a reasoning file, where theorems about the specifications are stated and proved using provided tactics to construct the theorem conclusion from its assumptions.
+\item a specification file, where the meta-theory of the studied systems are defined.
+\item a reasoning file, where theorems about the specifications are stated and proved using a language of tactics.
 \end{itemize}
 
 Abella allows for higher-order reasoning; terms may introduced assumptions to a local context of assumptions. In Abella, such context is represented as a list. However, contextual reasoning generally requires a certain number of structural properties of the context which do not hold in general for lists of formulas. For this reason, other systems such as Twelf \cite{twelfsys} and Beluga \cite{belugasys} provide specific facilities to characterize contexts in such way that the desired proprieties always hold. Instead, Abella users currently need to define a proposition characterizing which assumptions can appear in the context, and prove a number of structural theorems to reason about members of such context. Our main contribution is to provide facilities to define contexts and relations between them, and to automatically prove properties about them, lessening the pain of doing contextual reasoning in Abella.
@@ -111,12 +111,12 @@ type bfree tm -> o.
 \begin{lstlisting}
 Define ctx2 : olist -> olist -> prop by
   ctx2 nil nil
-; nabla x p,
-    ctx2 (bred x x :: G) (path x p :: D) := 
+; nabla n p,
+    ctx2 (bred n n :: G) (path n p :: D) := 
       ctx2 G D
-; nabla x,
-    ctx2 ((pi u\ bred N u => bred x u) :: G)
-         ((pi q\ path N q => path x q) :: D) :=
+; nabla n,
+    ctx2 ((pi u\ bred M u => bred n u) :: G)
+         ((pi q\ path M q => path n q) :: D) :=
       ctx2 G D.
 \end{lstlisting}
 
@@ -125,10 +125,10 @@ Contexts, as defined in our plugin, can be described zero or more applications o
 
 \begin{lstlisting}
 Ctx !
-Schema ctx2 := nabla x p, (bred x x, path x p);
-               exists N, nabla x, 
-                 ((pi u\ bred N u => bred x u), 
-                 (pi q\ path N q => path x q)). !
+Schema ctx2 := nabla n p, (bred n n, path n p);
+               exists M, nabla n, 
+                 ((pi u\ bred M u => bred n u), 
+                 (pi q\ path M q => path n q)). !
 \end{lstlisting}
 
 
@@ -141,15 +141,15 @@ The tactics introduced by our plugin are:
 Theorem ctx2_mem_G :
 forall G D F,
   ctx2 G D -> member F G ->
-  ((exists p x, 
-    member (path x p) D $\wedge$
-    F = bred x x $\wedge$  
-    name_p p $\wedge$ name_tm x)
+  ((exists N P, 
+    member (path N P) D $\wedge$
+    F = bred N N $\wedge$  
+    name_p P $\wedge$ name_tm N)
   $\vee$
-   (exists N x, 
-    member (pi q\ path N q => path x q) D $\wedge$ 
-    F = (pi u\ bred N u => bred x u) $\wedge$  
-    fresh_tm_in_tm x N)).
+   (exists M N, 
+    member (pi q\ path M q => path N q) D $\wedge$ 
+    F = (pi u\ bred M u => bred N u) $\wedge$  
+    fresh_tm_in_tm N M)).
 intros Hctx  Hmem. 
 Ctx ! inversion Hctx Hmem.! 
 search.
@@ -158,11 +158,11 @@ search.
 \item Synchronize, which states that given a member of a context in a context relation, clauses which could have introduced that term introduced at the same time corresponding members in the other projections of the context relation.
 \begin{lstlisting}
 Theorem ctx2_uniform :
-  forall G D X, nabla n,
+  forall G D M N,
   ctx2 G D ->
-  member (pi u\ bred X u => bred n u) G ->
-  (member (pi q\ path X q => path n q) D $\wedge$ 
-   fresh_tm_in_tm n X).
+  member (pi u\ bred M u => bred N u) G ->
+  (member (pi q\ path M q => path N q) D $\wedge$ 
+   fresh_tm_in_tm N M).
 intros Hctx Hmem. 
 Ctx ! sync Hctx Hmem. ! 
 search.
@@ -172,10 +172,10 @@ search.
 
 \begin{lstlisting}
 Theorem member_D_determinate :
-   forall G D X Y, nabla n,
+   forall G D X Y N,
    ctx2 G D ->
-   member (pi q\ path X q => path n q) D ->
-   member (pi q\ path Y q => path n q) D ->
+   member (pi q\ path X q => path N q) D ->
+   member (pi q\ path Y q => path N q) D ->
    X = Y.
 intros Hctx Hmem1 Hmem2. 
 Ctx ! unique Hctx Hmem1 Hmem2. ! 
