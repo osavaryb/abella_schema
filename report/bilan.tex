@@ -82,17 +82,23 @@
 
 \begin{document}
 \maketitle
-%Introduction
-Abella \cite{abellasys} is an interactive theorem prover developed in collaboration at INRIA Saclay and U. of Minnesota. A formal development in Abella consists of:
+\section{Introduction}
+
+Abella \cite{abellasys} is an interactive theorem prover developed in a collaboration between INRIA Saclay Ile-de-France and U. of Minnesota. A formal development in Abella consists of:
 \begin{itemize}
 \item a specification file, where the meta-theory of the studied systems are defined,
 \item a reasoning file, where theorems about the specifications are stated and proved using provided tactics to construct the theorem conclusion from its assumptions.
 \end{itemize}
 
-Abella allows for higher-order reasoning; terms may introduced assumptions to a local context of assumptions, represented as a list. It however doesn't provide specific facilities to define context, such as regular worlds in Twelf \cite{twelfsys} and schemas \cite{belugasys}. Instead, users need to define a proposition characterizing which assumptions can appear in the context, and prove a number of structural theorems to reason about members of such context.
+Abella allows for higher-order reasoning; terms may introduced assumptions to a local context of assumptions. In Abella, such context is represented as a list. However, contextual reasoning generally requires a certain number of structural properties of the context which do not hold in general for lists of formulas. For this reason, other systems such as Twelf \cite{twelfsys} and Beluga \cite{belugasys} provide specific facilities to characterize contexts in such way that the desired proprieties always hold. Instead, Abella users currently need to define a proposition characterizing which assumptions can appear in the context, and prove a number of structural theorems to reason about members of such context. Our main contribution is to provide facilities to define contexts and relations between them, and to automatically prove properties about them, lessening the pain of doing contextual reasoning in Abella.
+
+% lacks specific facilities to define them, such as regular worlds in Twelf \cite{twelfsys} and schemas in Beluga \cite{belugasys}. 
 
 
-We developed a plugin for Abella introducing Schema, which restricts context definitions to a well-behaved fragment, and tactics stating, automatically proving and applying theorems which always hold for context defined in our fragment. This greatly reduces the amount of boilerplate code needed for contextual reasoning in Abella. We will use the definition and lemmas about the context relation \lstinline|ctx2|, used in \lstinline|bredure|, from the Abella example suite,  as a working example.
+\section{Description of the development}
+
+We developed a plugin for Abella introducing Schema, which restricts context definitions to a well-behaved fragment of inductive definition, and tactics automatically proving and applying theorems which always hold for context defined in our fragment. This greatly reduces the amount of boilerplate code needed for contextual reasoning in Abella. We will use the definition and lemmas about the context relation \lstinline|ctx2|, used in \lstinline|bredure|, from the Abella example suite, as a working example.
+
 \begin{lstlisting}
 kind tm   type.
 ...
@@ -155,7 +161,8 @@ Theorem ctx2_uniform :
   forall G D X, nabla n,
   ctx2 G D ->
   member (pi u\ bred X u => bred n u) G ->
-  (member (pi q\ path X q => path n q) D $\wedge$ fresh_tm_in_tm n X).
+  (member (pi q\ path X q => path n q) D $\wedge$ 
+   fresh_tm_in_tm n X).
 intros Hctx Hmem. 
 Ctx ! sync Hctx Hmem. ! 
 search.
@@ -189,6 +196,8 @@ search.
 
 
 \end{itemize}
+
+\section{Discussion and Conclusion}
 These tactics eliminates most of the boilerplate lemmas present in the Abella example suite developments. For example, using our plugin to rewrite the $bredure$ example eliminates half of the lines of code in the reasoning ($.thm$) file. As additional context relations and mappings between context relations are present in bigger developments, we believe the provided tactics can significantly reduce the size of Abella development using reasoning with contexts.
 
 All the theorems proved by the tacticals could be proved directly at the moment of schema definition (or at the second schema definition in the case of projection). However, to reduce the number of theorems polluting the environment, we state and prove them as needed, selecting the required theorem by observing the assumptions to which the tactical is applied. Proven theorems are kept until the end of the proof in which the tactical was used to avoid having reproving repetitive application of tacticals to similar hypothesis. Each theorem can also be named by stating it and using a tactical to prove it, as shown in each of the included example use of tacticals.
