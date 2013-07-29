@@ -83,7 +83,7 @@
 \begin{document}
 \maketitle
 \section{Introduction}
-This work is about simplifying contextual reasoning in Abella.
+This work aims at simplifying contextual reasoning in Abella.
 
 Abella \cite{abellasys} is an interactive theorem prover developed in a collaboration between INRIA Saclay Ile-de-France and U. of Minnesota. A formal development in Abella consists of:
 \begin{itemize}
@@ -91,8 +91,7 @@ Abella \cite{abellasys} is an interactive theorem prover developed in a collabor
 \item a reasoning file, where theorems about the specifications are stated and proved using a language of tactics.
 \end{itemize}
 
-Abella allows for higher-order reasoning; terms may introduce assumptions to a local context of assumptions. In Abella, such contexts are represented as lists. However, contextual reasoning generally requires a certain number of structural properties of the context which do not hold in general for lists of formulas. For this reason, other systems such as Twelf \cite{twelfsys} and Beluga \cite{belugasys} provide specific facilities to characterize contexts in such a way that the desired proprieties always hold. Instead, Abella users need to define a proposition characterizing what assumptions can be dynamically added to the context, and prove a number of structural theorems to reason about members of such context. Our main contribution is to provide facilities to define contexts and relations between them, and to automatically prove properties about them, considerably simplifying doing contextual reasoning in Abella.
-
+Abella allows for higher-order reasoning; terms may introduce assumptions to a local context of assumptions. In Abella, such contexts are represented as lists. However, contextual reasoning generally requires a certain number of structural properties of the context which do not hold in general for lists of formulas. For this reason, other systems such as Twelf \cite{twelfsys} and Beluga \cite{belugasys} provide specific facilities to characterize contexts in such a way that the desired proprieties always hold. Instead, Abella users need to define a proposition characterizing what kind of assumption can dynamically extend the context, and prove a number of structural theorems to reason about members of such context. Our main contribution is to automatically prove properties about contexts defined using our facilities.
 % lacks specific facilities to define them, such as regular worlds in Twelf \cite{twelfsys} and schemas in Beluga \cite{belugasys}. 
 
 
@@ -122,7 +121,7 @@ Define ctx2 : olist -> olist -> prop by
 \end{lstlisting}
 
 %Top_command
-Contexts, as defined in our plugin, can be described as zero or more applications of a finite sum of clauses, each of which adds a formula to a context of the same schema. We restrict the quantification of variables in the formulas to a series of existential quantifiers ($\exists$) followed by $\nabla$s. N-ary context relations, where formulas (potentially depending on the same variables) are introduced simultaneously in  $n$ different contexts, can also be represented using our extension. N-ary context relations are represented using n lists of formulas, each clause corresponding to a constructor stating that, given such context relations, adding the formulas in the clauses in front of their respective list relate the extended lists. An additional constructor corresponding relating empty contexts is added to every context relation. 
+Contexts, as defined in our plugin, can be described as zero or more applications of a finite sum of clauses, each of which adds a formula to a context of the same schema. We restrict the quantification of variables in the formulas to a series of existential quantifiers ($\exists$) followed by $\nabla$s. N-ary context relations, where formulas (potentially depending on the same variables) are introduced simultaneously in  $n$ different contexts, can also be represented using our extension. N-ary context relations are represented using n lists of formulas, each clause corresponding to a constructor stating that, given such context relations, adding the formulas in the clauses in front of their respective list relate the extended lists. An additional constructor corresponding relating empty contexts is added to every context relation. The grammar of the schema definitions follows.
 
 
 \begin{lstlisting}
@@ -160,7 +159,7 @@ Schema ctx2 := nabla n p, (bred n n, path n p);
 
 %Command
 
-We give the grammar for the tactics supported by our plugin below.
+The grammar for the tactics supported by our plugin follows.
 
 \begin{lstlisting}
 COMMAND :=
