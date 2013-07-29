@@ -67,7 +67,6 @@ val lam : tyctx -> term -> term
 val app : term -> term list -> term
 val susp : term -> int -> int -> env -> term
 val db : int -> term
-val copy : term -> term
 
 module Notations :
 sig

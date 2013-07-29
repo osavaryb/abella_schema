@@ -83,6 +83,7 @@
 \begin{document}
 \maketitle
 \section{Introduction}
+This work is about simplifying contextual reasoning in Abella.
 
 Abella \cite{abellasys} is an interactive theorem prover developed in a collaboration between INRIA Saclay Ile-de-France and U. of Minnesota. A formal development in Abella consists of:
 \begin{itemize}
@@ -90,14 +91,14 @@ Abella \cite{abellasys} is an interactive theorem prover developed in a collabor
 \item a reasoning file, where theorems about the specifications are stated and proved using a language of tactics.
 \end{itemize}
 
-Abella allows for higher-order reasoning; terms may introduce assumptions to a local context of assumptions. In Abella, such contexts are represented as lists. However, contextual reasoning generally requires a certain number of structural properties of the context which do not hold in general for lists of formulas. For this reason, other systems such as Twelf \cite{twelfsys} and Beluga \cite{belugasys} provide specific facilities to characterize contexts in such a way that the desired proprieties always hold. Instead, Abella users need to define a proposition characterizing which assumptions can appear in the context, and prove a number of structural theorems to reason about members of such context. Our main contribution is to provide facilities to define contexts and relations between them, and to automatically prove properties about them, considerably simplifying doing contextual reasoning in Abella.
+Abella allows for higher-order reasoning; terms may introduce assumptions to a local context of assumptions. In Abella, such contexts are represented as lists. However, contextual reasoning generally requires a certain number of structural properties of the context which do not hold in general for lists of formulas. For this reason, other systems such as Twelf \cite{twelfsys} and Beluga \cite{belugasys} provide specific facilities to characterize contexts in such a way that the desired proprieties always hold. Instead, Abella users need to define a proposition characterizing what assumptions can be dynamically added to the context, and prove a number of structural theorems to reason about members of such context. Our main contribution is to provide facilities to define contexts and relations between them, and to automatically prove properties about them, considerably simplifying doing contextual reasoning in Abella.
 
 % lacks specific facilities to define them, such as regular worlds in Twelf \cite{twelfsys} and schemas in Beluga \cite{belugasys}. 
 
 
 \section{The Schema Plugin}
 
-We developed a plugin for Abella introducing Schema, which restricts context definitions to a well-behaved fragment of inductive definitions, and tactics automatically proving and applying theorems which always hold for context defined in our fragment. We will use the definition and lemmas about the context relation \lstinline|ctx2|, used in \lstinline|bredure|, from the Abella example suite, as a working example.
+We developed a plugin for Abella introducing Schema, which restricts regular contexts definition to a fragment of inductive definitions available in Abella, and tactics automatically proving and applying theorems which always hold for context defined in our fragment. We will use the definition and lemmas about the context relation \lstinline|ctx2|, used in \lstinline|bredure|, from the Abella example suite, as a working example.
 
 \begin{lstlisting}
 kind tm   type.
@@ -123,20 +124,28 @@ Define ctx2 : olist -> olist -> prop by
 %Top_command
 Contexts, as defined in our plugin, can be described as zero or more applications of a finite sum of clauses, each of which adds a formula to a context of the same schema. We restrict the quantification of variables in the formulas to a series of existential quantifiers ($\exists$) followed by $\nabla$s. N-ary context relations, where formulas (potentially depending on the same variables) are introduced simultaneously in  $n$ different contexts, can also be represented using our extension. N-ary context relations are represented using n lists of formulas, each clause corresponding to a constructor stating that, given such context relations, adding the formulas in the clauses in front of their respective list relate the extended lists. An additional constructor corresponding relating empty contexts is added to every context relation. 
 
-\begin{comment}
+
 \begin{lstlisting}
-cbody :=
-  | term, cbody
-  | term
+OPTEXISTS :=
+  | exists <ID LIST>, 
+  |
 
-clause :=
-  | ["exists" ...,]? ["nabla" ...,]? ( cbody )
-  | ["exists" ...,]? ["nabla" ...,]? term
+OPTNABLAS :=
+  | nabla <ID LIST>,
+  |
 
-top_command :=
-  | "Schema" id := clause
+CBODY :=
+  | <TERM>, <CBODY>
+  | <TERM>
+
+CLAUSE :=
+  | <OPTEXISTS> <OPTNABLAS> ( <CBODY> )
+  | <OPTEXISTS> <OPTNABLAS> <TERM>
+
+TOP_COMMAND :=
+  | Schema <SCH-NAME> := <CLAUSE>
 \end{lstlisting} 
-\end{comment}
+
 
 The definition of \lstinline|ctx2| as a context relation schema is given below.
 
@@ -150,23 +159,23 @@ Schema ctx2 := nabla n p, (bred n n, path n p);
 
 
 %Command
-The tactics introduced by our plugin are:
 
-\begin{comment}
+We give the grammar for the tactics supported by our plugin below.
+
 \begin{lstlisting}
-command :=
-  | "inversion" id id
-  | "sync"      id id
-  | "unique"    id id id
-  | "projas" "(" term ")" id
+COMMAND :=
+  | inversion <HYP-NAME> <HYP-NAME>
+  | sync      <HYP-NAME> <HYP-NAME>
+  | unique    <HYP-NAME> <HYP-NAME> <HYP-NAME>
+  | projas ( <TERM> )  <HYP-NAME>
 \end{lstlisting}
-\end{comment}
 
+The tactics introduced by our plugin are:
 \begin{itemize}
 \item Inversion, which states that we can characterize members of the contexts by one of the clauses which could have introduced them. The inversion theorems we generate also provide informations about the nominal nature of the $\nabla$-bound variables, and about the formulas introduced in the other projections of the context relation.
 
 \begin{lstlisting}
-Theorem ctx2_mem_G :
+Theorem ctx2_inversion_G :
 forall G D F,
   ctx2 G D -> member F G ->
   ((exists N P, 
@@ -185,7 +194,7 @@ search.
 
 \item Synchronize, which states that given a member of a context in a context relation, clauses which could have introduced that term introduced at the same time corresponding members in the other projections of the context relation.
 \begin{lstlisting}
-Theorem ctx2_uniform :
+Theorem ctx2_synchronize :
   forall G D M N,
   ctx2 G D ->
   member (pi u\ bred M u => bred N u) G ->
@@ -199,7 +208,7 @@ search.
 \item Unique, which states that two members of a context sharing nominal variables should be equal. This is because we restrict the logical variables to be bound before the nominal variables introduced in each clauses, such that a particular nominal variable can only appear in a single instance of a clause in a context relation.   
 
 \begin{lstlisting}
-Theorem member_D_determinate :
+Theorem member_D_unique :
    forall G D X Y N,
    ctx2 G D ->
    member (pi q\ path X q => path N q) D ->
@@ -210,16 +219,26 @@ Ctx ! unique Hctx Hmem1 Hmem2. !
 search.
 \end{lstlisting}
 
-\item Projection, which helps reusing contexts in different context relations by verifying and applying projection and injection theorems. The $i$th context relations \lstinline|S| can be used as the $j$th projection of a context relations \lstinline|S'| if, for each clauses \lstinline|C| of \lstinline|S|, there exists a clause \lstinline|C'| of \lstinline|S'| s.t. the $i$th formula of \lstinline|C| matches the $j$th formula of \lstinline|C'|, which is to say that the $j$th projection of the schema \lstinline|S'| is more general than the $i$th projection schema \lstinline|S| .
+\item Projection, which helps reusing contexts in different context relations by verifying and applying transformation (projections and injections) theorems between context relations. The $i$th context relations \lstinline|S| can be used as the $j$th projection of a context relations \lstinline|S'| if, for each clauses \lstinline|C| of \lstinline|S|, there exists a clause \lstinline|C'| of \lstinline|S'| s.t. the $i$th formula of \lstinline|C| matches the $j$th formula of \lstinline|C'|, which is to say that the $j$th projection of the schema \lstinline|S'| is more general than the $i$th projection schema \lstinline|S| .
 \begin{lstlisting}
-Ctx!
-Schema bctx := nabla n p, (bfree n, path n p). !
+Ctx !
+Schema bctx := exists M, nabla n, 
+                  (pi u\ bred M u => bred n u);
+               exists n n', bred n n'. !
 
 
-Theorem bctxToCtx2: forall G D, bctx G D -> (exists E, ctx2 E D).
+Theorem ctx2ToBctx: forall E D, ctx2 E D -> bctx E.
+intros Hctx. 
+Ctx ! projas (bctx E) Hctx. ! 
+search.
+
+Ctx ! Schema pctx := nabla n p, path n p. !.
+
+Theorem pctxToCtx2: forall D, pctx D -> (exists E, ctx2 E D).
 intros Hctx. 
 Ctx ! projas (ctx2 E D) Hctx. ! 
 search.
+
 \end{lstlisting}
 
 
@@ -234,7 +253,7 @@ All the theorems proved by the tacticals could be proven at the moment of schema
 An important design decision of our development is that the theorem generated are proven using the primitive tactics of Abella, and verified as regular theorems. Consequently, no logical inconsistency could have been introduced by our plugin. This contrasts with theorem provers providing primitive notions of context, such as Twelf \cite{twelfsys} and Beluga \cite{belugasys}, where the properties proven with our tactics are part of the trusted code base.
 
 %Plugin extension
-The extension we describe adds both top level commands and tactics to Abella. Instead of modifying the parser and main function to support the new functionality, we devised a plugin framework where an arbitrary expression can be dispatched to a particular plugin from an Abella source file. Plugins are implemented as modules implementing a processing function for strings received from the top level of the source file, and another processing function for strings received as reasoning command. Each processing function receives a function which allows to recursively process strings as if their appeared in their respective position in the source file. The processing function at the reasoning command level also receives a copy of the current goal and hypothesis, which are updated by their recursing function. This can be related to tactical languages such as LCF (TODO:add cite) and Ltac \cite{ltacpap}, which can be used to develop Coq procedures applying tactics in function of current goal. In comparison, we allow arbitrary, potentially unsafe Ocaml code in the plugins, with the restriction that the only entry point back in the prover is the passed function. In the future, one would like to provide functions for plugins to safely interact with the prover, which could culminate in a language to define extensions and tacticals from within Abella source files. 
+The extension we describe adds both top level commands and tactics to Abella. Instead of modifying the parser and main function to support the new functionality, we devised a plugin framework where an arbitrary expression can be dispatched to a particular plugin from an Abella source file. Plugins are implemented as modules implementing a processing function for strings received from the top level of the source file, and another processing function for strings received as reasoning command. Each processing function receives a function which allows to recursively process strings as if their appeared in their respective position in the source file. The processing function at the reasoning command level also receives a copy of the current goal and hypothesis, which are updated by their recursing function. This can be related to tactical languages such as Ltac \cite{ltacpap}, which can be used to develop Coq procedures applying tactics in function of current goal. In comparison, we allow arbitrary, potentially unsafe Ocaml code in the plugins, with the restriction that the only entry point back in the prover is the passed function. In the future, one would like to provide functions for plugins to safely interact with the prover, which could culminate in a language to define extensions and tacticals from within Abella source files. 
 
 
 \bibliographystyle{abbrvnat}

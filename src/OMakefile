@@ -42,6 +42,7 @@ FILES[] =
     abella_types
     extensions
 
+
 MAIN = abella
 
 OCamlProgram(abella, $(FILES) $(MAIN))

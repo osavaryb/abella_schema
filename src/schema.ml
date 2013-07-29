@@ -28,7 +28,6 @@ open Extensions
 open Schema_types
 
 
-(* Lex/parse buff *)
 let slexbuf = ref (Lexing.from_string "")
 
 

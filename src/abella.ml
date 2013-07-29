@@ -26,7 +26,7 @@ open Extensions
 open Printf
 open Debug
 open Accumulate
-open Schema
+
 
 
 let can_read_specification = ref true

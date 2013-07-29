@@ -88,6 +88,7 @@ let async_to_member obj =
   let (context, term) = Async.get obj in
   member term (Context.context_to_term context)
 
+(*
 let rec copy mt = 
 match mt with
   | Eq (t1,t2) -> 
@@ -112,7 +113,7 @@ match mt with
   | Binding(b,tyctx,mt) ->
       let mt' = copy mt in
       Binding(b,tyctx,mt')
-  | _ -> mt
+  | _ -> mt *)
 
 (* Pretty printing *)
 
