@@ -1,3 +1,5 @@
+This change log unmaintained as of 21-07-2013, see documentation in tactdoc, plugdoc and report/bilan
+
 (19/07/2013) bis
 * Added generic tactic extension to abella, dispatches tactics of the form 
  "plugName" ! "tactName" H1 ... Hn

@@ -47,8 +47,14 @@ exception AbortProof
 
 (* Plugins *)
 
+(*
 module type PLUGIN = sig 
   val process_tactic : (string -> unit) -> string -> unit
+  val process_top : (string -> unit) -> string -> unit
+end *)
+
+module type PLUGIN = sig 
+  val process_tactic : (string -> Prover.sequent) -> string -> Prover.sequent -> unit
   val process_top : (string -> unit) -> string -> unit
 end
 
@@ -438,7 +444,7 @@ let rec process_proof name =
       |	TacPlugin (pn, st) -> 
 	  let (module Plug) = (try Hashtbl.find plugins pn
                 with Not_found -> failwith (sprintf "Unknown plugin %s.\n" pn)) in 
-	  Plug.process_tactic (recursePPOn) st
+	  Plug.process_tactic (recursePPOn) st (copy_sequent())
    | Apply(h, args, ws, hn) ->  
      apply ?name:hn h args ws ~term_witness;
       | Backchain(h, ws) -> backchain h ws ~term_witness
@@ -522,7 +528,7 @@ and recursePPOn ?quiet:(q=true) aStr =
    process_proof "";
    out := !holdout;
    lexbuf := !holdbuf;
-   ()
+   copy_sequent()
    with AbortProof ->
      out := !holdout; lexbuf := !holdbuf; failwith  (sprintf "error while recursePPOn %s" aStr)
    |  e -> out := !holdout; lexbuf := !holdbuf; printf "Error while recursePPOn %s \n" aStr; raise e  end

@@ -296,48 +296,43 @@ let rec seqIdTerm id t nl =
 
 
 
-let makeDummyVars nl = 
-     let i = nl+1 in
-     let v1n = "A"^(string_of_int i) in
-     let v2n = "B"^(string_of_int i) in
-      (i, Term.(var Constant v1n max_int (Ty([],"err"))), Term.(var Constant v2n max_int (Ty([],"err"))))
 
-(* make two terms with new variables Ai...Ai+n,Bi...Bi+1 leaving constants and "X" untouched *)
-let rec uniteTerms t nl v = 
+
+
+let rec seqNameTerm t nl v c = 
    let (_,ctable) = !sign in
    begin match observe (hnorm t) with
    | App (th1,tt1) ->  
    begin if List.mem_assoc (term_to_string th1) ctable then 
-   let (nl,th1',th2') = uniteTerms th1 nl v in
-   let (nl,tt1',tt2') = (List.fold_right (fun (t1) (nl, t1l,t2l) ->  
-                             let (nl',t1',t2') =  uniteTerms t1 nl v in
-                                 (nl', t1'::t1l,t2'::t2l))
-            (tt1) (nl,[],[])) in
-   (nl, (app  th1' tt1'), (app th2' tt2'))
+   let (nl,th1') = seqNameTerm th1 nl v c in
+   let (nl,tt1') = (List.fold_right (fun (t1) (nl, t1l) ->  
+                             let (nl',t1') =  seqNameTerm t1 nl v c in
+                                 (nl', t1'::t1l))
+            (tt1) (nl,[])) in
+   (nl, (app  th1' tt1'))
    else 
-    makeDummyVars nl
+     (nl+1, logic_var (c^(string_of_int nl))  ((Ty([],"err"))))
    end 
    | Var v1 ->
-   begin if (Term.(v1.name) = v) || List.mem_assoc Term.(v1.name) ctable then 
-     (nl,t,t)
-   else
- begin if Term.(v1.tag = Nominal) then
-        (nl,Term.(var Constant "" max_int (Ty([],"err"))), Term.(var Constant "" max_int (Ty([],"err")))) else
-     let i = nl+1 in
-     let v1n = "A"^(string_of_int i) in
-     let v2n = "B"^(string_of_int i) in
-      (i , Term.(var v1.tag v1n v1.ts v1.ty), Term.(var v1.tag v2n v1.ts v1.ty)) 
-end
- end
+       if (Term.(v1.name) = v) || List.mem_assoc Term.(v1.name) ctable then 
+	 (nl,t)
+       else
+	 (nl+1, logic_var (c^(string_of_int nl))  ((Ty([],"err"))))
    | Lam (idtys1, tm1') -> 
-      let (nl, tu1', tu2') =  uniteTerms tm1'  nl v in
-      (nl, lambda idtys1 tu1',lambda idtys1 tu2')
-   | DB _ -> (nl, t, t)
+      let (nl, tu1') =  seqNameTerm tm1'  nl v c in
+      (nl, lambda idtys1 tu1')
+   | DB _ -> (nl, t)
    | _ ->  
- invalid_arg (sprintf "unexpected %s in uniteTerms" (term_to_string t)) 
+ invalid_arg (sprintf "unexpected %s in seqNameTerm" (term_to_string t)) 
    end
 
 
+(* Returns an integer "n" and two copies of T, one with its logic variables replaces by a sequence of "Ai"s and the other with "Bi"s, numbered for i=1 to n *)
+let uniteTerms t v =
+  let n,t1 = seqNameTerm t 1 v "A" in
+  let _,t2 = seqNameTerm t 1 v "B" in
+    (n-1,t1,t2)
+ 
    
 
 let rec pairwiseEqual t1 t2 = 
@@ -503,7 +498,6 @@ let rec unifyClConst idtm =
   | [] -> [] 
   end
 
-(* ? if I type the blocks separately, will the nabla variables still unify? *)
 let rec proClConst ids cls =
   begin match cls with
   | (tts)::cls' -> 
@@ -612,7 +606,6 @@ let make_sync_stmt i id arr ids ads tm =
   let (fvl,_) = List.split (List.append lfvl nfvl) in
   let fvstr = String.concat " " fvl in
   let clstrl = List.map  (make_sync_clause i) (List.combine ids ads) in
-(*   List.iteri (printf "%d: Make_sync_clause  %s \n") clstrl; flush stdout; *)
   let clstrl = List.filter (fun s -> not (s = "")) clstrl in
     let ctxgl =  string_count arr "G" in
     let ctxg = String.concat " " ctxgl in
@@ -759,7 +752,7 @@ let make_proj_prf i  =
 
 (* Schema Plugin *)
 
-let process_tactic rPPO st =
+let process_tactic rPPO st _ =
   let finished = ref false in
   slexbuf := Lexing.from_string st;
     begin try while not !finished do try
@@ -852,7 +845,7 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
 		    let gvSwap = ((groundVar,oldid)::[(oldid,groundVar)]) in
 		    (rename_ids_in_term gvSwap tm)) (List.combine pmts rel) in
 		  List.iter (Unify.left_unify (List.hd tlup)) (List.tl tlup);
-(* uni.8 *)      let (nl,tu1,tu2) = uniteTerms (List.hd tlup) 0 groundVar in
+(* uni.8 *)       let (nl,tu1,tu2) = uniteTerms (List.hd tlup) groundVar in
 		  let (bads,_) = List.split ads in
 		  let uniThmStr = make_uni_stmt schName tu1 tu2 nl arr gi groundVar in
                   let uniPrfStr = make_uni_prf schName mts bads in
@@ -918,9 +911,6 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
     done with
       | Failure "eof" -> ()
     end
-
-
-
 
 
 

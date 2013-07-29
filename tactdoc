@@ -8,21 +8,21 @@ Presentation of the Ctx plugin.
 Syntax:
 
 top_command :=
-  | "Schema" id := clause
+  | Schema [name] := clause
 
 command :=
-  | "inversion" id id
-  | "sync"      id id
-  | "unique"    id id id
-  | "projas" "(" term ")" id
+  | "inversion" H1 H2
+  | "sync"      H1 H2
+  | "unique"    H1 H2 H3
+  | "projas" "(" [destination schema name and projections] ")" H
 
 cbody :=
   | term, cbody
   | term
 
 clause :=
-  | ["exists" ...,]? ["nabla" ...,]? ( cbody )
-  | ["exists" ...,]? ["nabla" ...,]? term
+  | ["exists" ...,]? ["nabla ...,]? ( cbody )
+  | ["exists" ...,]? ["nabla ...,]? term
 
 
 

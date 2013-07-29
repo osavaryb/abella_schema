@@ -88,6 +88,32 @@ let async_to_member obj =
   let (context, term) = Async.get obj in
   member term (Context.context_to_term context)
 
+let rec copy mt = 
+match mt with
+  | Eq (t1,t2) -> 
+      let t1' = Term.copy t1 in
+      let t2' = Term.copy t2 in    
+      Eq(t1',t2')
+  | Arrow(mt1,mt2) ->
+      let mt1' = copy mt1 in
+      let mt2' = copy mt2 in
+      Arrow(mt1',mt2')
+  | Or(mt1,mt2) ->
+      let mt1' = copy mt1 in
+      let mt2' = copy mt2 in
+      Or(mt1',mt2')
+  | And(mt1,mt2) ->
+      let mt1' = copy mt1 in
+      let mt2' = copy mt2 in
+      And(mt1',mt2')
+  | Pred(t,r) ->
+      let t' = Term.copy t in
+      Pred(t',r)
+  | Binding(b,tyctx,mt) ->
+      let mt' = copy mt in
+      Binding(b,tyctx,mt')
+  | _ -> mt
+
 (* Pretty printing *)
 
 let restriction_to_string r =

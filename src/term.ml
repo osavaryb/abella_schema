@@ -380,6 +380,22 @@ let ty_to_string ty =
   in
     aux false ty
 
+
+let rec copy t =
+match observe t with
+| Var v -> var v.tag v.name v.ts v.ty
+| DB i -> t
+| App (t,ts) -> 
+    let t' = copy t in
+    let ts' = List.map copy ts in
+    App(t',ts')
+| Lam (tyctx,t) -> 
+    let t' = copy t in
+    Lam(tyctx, t')
+| _ ->     
+    let t' = hnorm t in
+    copy t'
+
 let term_to_string term =
   let high_pr = 2 + get_max_priority () in
   let pp_var x = abs_name ^ (string_of_int x) in
