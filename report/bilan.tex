@@ -94,7 +94,7 @@ Abella \cite{abellasys} is an interactive theorem prover developed in a collabor
 Abella allows for higher-order reasoning; terms may introduce assumptions to a local context of assumptions. In Abella, such contexts are represented as lists. However, contextual reasoning generally requires a certain number of structural properties of the context which do not hold in general for lists of formulas. For this reason, other systems such as Twelf \cite{twelfsys} and Beluga \cite{belugasys} provide specific facilities to characterize contexts in such a way that the desired proprieties always hold. Instead, Abella users need to define a proposition characterizing what kind of assumption can dynamically extend the context, and prove a number of structural theorems to reason about members of such context. Our main contribution is to automatically prove properties about contexts defined using our facilities.
 % lacks specific facilities to define them, such as regular worlds in Twelf \cite{twelfsys} and schemas in Beluga \cite{belugasys}. 
 
-\section{The Schema Plugin by Example}
+\section{The Ctx Plugin by Example}
 
 We developed a plugin for Abella introducing Schema, which restricts regular contexts definition to a fragment of inductive definitions available in Abella, and tactics automatically proving and applying theorems which always hold for context defined in our fragment. We will use the definition and lemmas about the context relation \lstinline|ctx2|, used in \lstinline|bredure|, from the Abella example suite, as a working example.
 
@@ -209,7 +209,7 @@ search.
 
 \end{itemize}
 
-\section{The Schema Plugin Revisited}
+\section{The Ctx Plugin Revisited}
 \subsection{Plugin}
 The extension we describe adds both top level commands and tactics to Abella. Instead of modifying the parser and main function to support the new functionality, we devised a plugin framework where an arbitrary expression can be dispatched to a particular plugin from an Abella source file. The signature of plugin modules is provided below.
 
@@ -272,11 +272,11 @@ TOP_COMMAND :=
 \end{lstlisting} 
 
 \subsubsection{Schema}
-A context, as defined by our extension, corresponds to \lstinline|($\sum_{i=1}^n$ F$_i$)$^*$|, where each \lstinline|F$_i$| is a formula. 
+A context, as defined by our extension, can be represented as \lstinline|($\sum_{i=1}^n$ F$_i$)$^*$|, where each \lstinline|F$_i$| is a formula. 
 
-A Schema definition consists of a series of clauses separated by semi-colun and terminated with a colun. Each clause consists of a tuple of formulas, their free variables bound either in the existential ($\exists$) or the nominal ($\nabla$) quantifiers heading the clause. We restrict the order of quantification to a series of $\exists$ followed by a series of $\nabla$, , such that the nominal variables introduced in a clause cannot appear in the clause's logic variables ,as the latter are bound outside the scope of the nominal abstractions. We take the length and projections of the tuple as length and projections of the clause.
+A Schema definition consists of a series of clauses separated by semi-colon and terminated with a colon. Each clause consists of a tuple of formulas, their free variable bounds either in existential ($\exists$) or  nominal ($\nabla$) quantifiers heading the clause. We restrict the order of quantification to a series of $\exists$ followed by a series of $\nabla$, such that the nominal variables introduced in a clause cannot appear in the clause's logic variables , the latter being bound outside the scope of the nominal abstractions. We take the length and projections of the tuple as length and projections of the clause.
 
-A Schema definition \lstinline|ctxM| is only well formed if each its clauses have the same length $m$. In that case, it can be expended as a regular inductive definition in Abella, as a proposition of type \lstinline|olist -> ... ->  prop| with $m$ olist. To this definition is added a base case \lstinline|ctxM nil ... nil| (with $m$ \lstinline|nil|), and, for each clauses, a case saying that given a context relation \lstinline|ctxM|, it can be extended by adding the formula in the $i$th projection to the $i$th context of the relation.
+A Schema definition \lstinline|ctxM| is well-formed if each of its clauses have the same length $m$. In that case, it can be expanded as an inductively-defined Abella proposition of type \lstinline|olist -> ... ->  prop| with $m$ olist. To this definition is added a base case \lstinline|ctxM nil ... nil| (with $m$ \lstinline|nil|), and, for each clause, a case saying that given a context relation \lstinline|ctxM G$1$ ... G$m$|, it can be extended by adding the formula in the $i$th projection of the clause in front of \lstinline|G$i$|.
 \begin{lstlisting}
 $\exists$ A$1$ ... A$p$, $\nabla$ n$1$ ... n$q$, (F_1, ..., F_m)
 
@@ -286,27 +286,31 @@ nabla n$1$ ... n$q$, ctxM F$1$::G$1$ ... F$m$::G$m$ :=
                        ctxM G$1$ ... G$m$
 \end{lstlisting}
 
-Context relations defined using schema are added to the definitions of the Abella session as any other inductive definition, and can thus afterward appear and be reason about in the same way as any other proposition.
+Context relations defined using schema are added to the definitions of the Abella session as any other inductive definition, and can thus afterward be referred to and be reasoned about in the same way as any other Abella proposition.
 
 \subsubsection{Generated Lemmas}
 
 After a Schema is defined, in addition to the context relation proposition being defined, a number of propositions and lemmas are automatically generated.
 
-For each unique pair of type \lstinline|(t$1$,t$2$)| where \lstinline|t$1$| is the type of a nominal variable and \lstinline|t$2$| is the type of a logic variable appearing in the same clause, we define a proposition \lstinline|fresh_t$1$_in_t$2$|, \lstinline|fresh_t$1$_in_t$2$ N X| stating that \lstinline|N| is a $\nabla$ bound variable of type \lstinline|t$1$| which can't appear in \lstinline|X|.
+For each unique pair of type \lstinline|(t$1$,t$2$)| where \lstinline|t$1$| is the type of a nominal variable and \lstinline|t$2$| is the type of a logic variable appearing in the same clause, we define a proposition \lstinline|fresh_t$1$_in_t$2$ N X|, stating that \lstinline|N| is a $\nabla$ bound variable of type \lstinline|t$1$| which can't appear in \lstinline|X|.
 
 \begin{lstlisting}
 Define fresh_t1_in_t2 : t2 -> t1 -> prop by
   nabla n, fresh_t1_in_t2 n X.
 \end{lstlisting}
 
-If no logic variable appear in the clause, we instead define \lstinline|name_t$1$| proposition, \lstinline|name_t$1$ N| stating that \lstinline|N| is a nominal variable of type \lstinline|t$1$|.
+If no logic variable appear in the clause, we instead define \lstinline|name_t$1$ N|, stating that \lstinline|N| is a nominal variable of type \lstinline|t$1$|.
 
 \begin{lstlisting}
 Define name_t1: t1 -> prop by
  nabla n, name_t1 n.
 \end{lstlisting}
 
-Finally, TODO explain prune.
+Finally, for each \lstinline|t$1$|, a prune lemma is stated and proven. This needs to be done as, while logic quantifiers are polymorphic at the reasoning level, this is not the case of nominal quantifiers. The statement of the pruning theorem for type \lstinline|t$1$| is given below.
+\begin{lstlisting}
+Theorem member_prune_t1 : forall G E, nabla (n:t1), 
+    member (E n) G -> (exists E', E = x\E').
+\end{lstlisting}
 
 \subsection{Tactics}
 The grammar for the tactics supported by our plugin follows.
@@ -323,26 +327,26 @@ COMMAND :=
 
 The \lstinline|inversion| tactic expects two hypothesis, the first of form \lstinline|ctxM G$1$ ... G$m$| and the second of form \lstinline|member E G$i$|, where \lstinline|E,G$1$,...,G$m$| are arbitrary logic variables,\lstinline|ctxM| is a defined schema of arity $m$ and \lstinline|1 $\leq$ $i$ $\leq$ $m$|.
 
-The statement generated by the \lstinline|inversion| tactic will then be a disjunction, each of its component corresponding to a clause \lstinline|C$j$| in the schema \lstinline|ctxM| which could have introduced \lstinline|E| in \lstinline|G$i$|. Each component is a conjunction of the information given by each projection of \lstinline|C$j$|. Where \lstinline|C$jk$| is the formula at the $k$th projection of the clause \lstinline|C$j$|, either \lstinline|E = C$jk$| if $k=i$, otherwise \lstinline|member C$jk$ G$k$|. Moreover, for every pair of nominal \lstinline|n| of type \lstinline|nt| and logical variables \lstinline|E'| of type \lstinline|et| in the clause, we add \lstinline|fresh_nt_in_et n E'| to the component, asserting that \lstinline|n| is $\nabla$-bound and doesn't appear in \lstinline|E'|. In the case where no logical variable are $\exists$-bound in the clause, we instead add \lstinline|name_nt n|, asserting that \lstinline|n| is nominal.
+The statement generated by the \lstinline|inversion| tactic concludes, given the two hypothesis, in a disjunction, each of its component corresponding to a clause \lstinline|C$j$| in the schema \lstinline|ctxM| which could have introduced \lstinline|E| in \lstinline|G$i$|. Each component is a conjunction of the information given by each projection of \lstinline|C$j$|. Where \lstinline|C$jk$| is the formula at the $k$th projection of the clause \lstinline|C$j$|, if $k=i$, then we know that \lstinline|E = C$jk$|, otherwise \lstinline|member C$jk$ G$k$|. Moreover, for every pair of nominal \lstinline|n| of type \lstinline|nt| and logical variables \lstinline|E'| of type \lstinline|et| in the clause, we add \lstinline|fresh_nt_in_et n E'| to the component, asserting that \lstinline|n| is $\nabla$-bound and doesn't appear in \lstinline|E'|. In the case where no logical variable are $\exists$-bound in the clause, we instead add \lstinline|name_nt n|, asserting that \lstinline|n| is nominal.
 
 \subsubsection{Synchronize}
-Synchronize can be seen as generalization of inversion, removing the requirement that \lstinline|E| need be a logic variable. 
+Synchronize can be seen as generalization of inversion, removing the requirement that \lstinline|E| is logic variable. 
 
 The \lstinline|sync| tactic expects two hypothesis, the first of form \lstinline|ctxM G$1$ ... G$m$| and the second of form \lstinline|member F G$i$|, where \lstinline|F| is a formula, \lstinline|G$1$,...,G$m$| are arbitrary logic variables,\lstinline|ctxM| is a defined schema of arity $m$ and \lstinline|1 $\leq$ $i$ $\leq$ $m$|.
 
-The statement generated by the \lstinline|sync| tactic is a disjunction with a component for each clause \lstinline|C$j$| such that $\exists \sigma.$ \lstinline| [$\sigma$] C$jk$ $=$ F|, which is to say that \lstinline|C$jk$| pattern-matches \lstinline|F|. Such a component will the be a conjunction of, for $k \neq i$, \lstinline|member C$jk$ G$k$|, in addition to the \lstinline|fresh_in| or \lstinline|name| assumptions described in ~\ref{subsec:inv}.
+The statement generated by the \lstinline|sync| tactic concludes in a disjunction with a component for each clause \lstinline|C$j$| such that $\exists \sigma.$ \lstinline| [$\sigma$] C$jk$ $=$ F|, which is to say that \lstinline|F| matches the pattern \lstinline|C$jk$|. Such a component will then be a conjunction of, for $k \neq i$, \lstinline|member C$jk$ G$k$|, in addition to the \lstinline|fresh_in| or \lstinline|name| assumptions described in ~\ref{subsec:inv}.
 
 \subsubsection{Unique}
 The \lstinline|unique| tactic expects three hypothesis, the first of form \lstinline|ctxM G$1$ ... G$m$|, the second of form \lstinline|member F$1$ G$i$| and the third of form \lstinline|member F$2$ G$i$|, where \lstinline|F$1$,F$2$| are unifiable formulas, \lstinline|G$1$,...,G$m$| are arbitrary logic variables,\lstinline|ctxM| is a defined schema of arity $m$ and \lstinline|1 $\leq$ $i$ $\leq$ $m$|.
 
-\lstinline|unique| theorems are based on that, due to our binding order, a particular nominal variables can only appear in a single clause of the context relation. Therefore, we can validly state the theorems that, if \lstinline|F$1$| and \lstinline|F$2$| shares a nominal variable and that they are both from the same projection of \lstinline|ctxM|, they must be the same. To create the statement of the theorem, we unify \lstinline|F$1$| and \lstinline|F$2$| as \lstinline|F|, and create a set \lstinline|S| of all clauses \lstinline|C$l$| of \lstinline|ctxM| for which \lstinline|C$li$| would match \lstinline|F|. Then, we see if there exists a logic variable \lstinline|E| appearing at the same position in \lstinline|F$1$| and \lstinline|F$2$|, such that, in each \lstinline|C$li$ $\in$ S|, a nominal variable appears at this position. If this is the case, the statement will consists of, given the original \lstinline|ctxM G$1$ ... G$m$| hypothesis and two assumptions \lstinline|member F'$1$ G$i$| and \lstinline|member F'$2$ G$1$|, where \lstinline|F'$1$, F'$2$| are formulas of the form corresponding to unifying all \lstinline|C$li$ $\in$ S| together, solely sharing the logical variable \lstinline|E| and whose other variables are, respectively, \lstinline|A$1$, ..., A$p$| and \lstinline|B$1$, ..., B$p$|, then \lstinline|A$j$ = B$j$| for $1 \leq j \leq p$.
+\lstinline|unique| theorems are based on that, due to our binding order, a particular nominal variables can only appear in a single clause of the context relation. Therefore, we can validly state the theorems that, if \lstinline|F$1$| and \lstinline|F$2$| share a nominal variable and that they are both from the same projection of \lstinline|ctxM|, they must be the same. To create the statement of the theorem, we unify \lstinline|F$1$| and \lstinline|F$2$| as \lstinline|F|, and create a set \lstinline|S| of all clauses \lstinline|C$l$| of \lstinline|ctxM| for which \lstinline|C$li$| would match \lstinline|F|. Then, we see if there exists a logic variable \lstinline|E| appearing at the same position in \lstinline|F$1$| and \lstinline|F$2$|, such that, in each \lstinline|C$li$ $\in$ S|, a nominal variable appears at this position. If this is the case, the statement will consists of, given the original \lstinline|ctxM G$1$ ... G$m$| hypothesis and two assumptions \lstinline|member F'$1$ G$i$| and \lstinline|member F'$2$ G$1$|, where \lstinline|F'$1$, F'$2$| are formulas of the form corresponding to unifying all \lstinline|C$li$ $\in$ S| together, solely sharing the logical variable \lstinline|E| and whose other variables are, respectively, \lstinline|A$1$, ..., A$p$| and \lstinline|B$1$, ..., B$p$|, then \lstinline|A$j$ = B$j$| for $1 \leq j \leq p$.
 
 
 
 \subsubsection{Projection}
 The \lstinline|projection| tactic expects a formula of form \lstinline|ctxP D$1$ ... D$p$| and an hypothesis of form \lstinline|ctxM G$1$ ... G$m$|, where \lstinline|ctxM| and \lstinline|ctxP| are defined schemas respectively of arity $m$ and $p$, and \lstinline|D$1$,...,D$p$|, \lstinline|G$1$,...,G$m$| are sets of logic variables, possibly overlapping.
 
-Most of the work done in the \lstinline|projection| tactic is to verify that \lstinline|ctxM G$1$ ... G$m$ $\implies$ ctxP D$1$ ... D$p$|, which is to say that there exists a transformation from a context of the original schema \lstinline|ctxM| to the destination schema \lstinline|ctxP|.
+Most of the work done in the \lstinline|projection| tactic is to verify that \lstinline|ctxM G$1$ ... G$m$| does indeed imply \lstinline|ctxP D$1$ ... D$p$|, which is to say that there exists a transformation from any context of the original schema \lstinline|ctxM| to one of the destination schema \lstinline|ctxP|.
 
 To do so, for every \lstinline|D$i$ $\in$ D$1$, ..., D$p$|, we form the set 
 \lstinline|S$_{i}$: { G$k$ $\mid$ D$i$ = G$k$ $\wedge$ G$k$ $\in$ G$1$, ..., G$m$}|. 
@@ -368,9 +372,9 @@ An important design decision of our development is that the theorem generated ar
 
 
 
-\bibliographystyle{abbrvnat}
+ \bibliographystyle{abbrvnat}
 
-\bibliography{summer}
+ \bibliography{summer}
 
 
 \end{document}
