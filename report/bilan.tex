@@ -94,8 +94,7 @@ Abella \cite{abellasys} is an interactive theorem prover developed in a collabor
 Abella allows for higher-order reasoning; terms may introduce assumptions to a local context of assumptions. In Abella, such contexts are represented as lists. However, contextual reasoning generally requires a certain number of structural properties of the context which do not hold in general for lists of formulas. For this reason, other systems such as Twelf \cite{twelfsys} and Beluga \cite{belugasys} provide specific facilities to characterize contexts in such a way that the desired proprieties always hold. Instead, Abella users need to define a proposition characterizing what kind of assumption can dynamically extend the context, and prove a number of structural theorems to reason about members of such context. Our main contribution is to automatically prove properties about contexts defined using our facilities.
 % lacks specific facilities to define them, such as regular worlds in Twelf \cite{twelfsys} and schemas in Beluga \cite{belugasys}. 
 
-
-\section{The Schema Plugin}
+\section{The Schema Plugin by Example}
 
 We developed a plugin for Abella introducing Schema, which restricts regular contexts definition to a fragment of inductive definitions available in Abella, and tactics automatically proving and applying theorems which always hold for context defined in our fragment. We will use the definition and lemmas about the context relation \lstinline|ctx2|, used in \lstinline|bredure|, from the Abella example suite, as a working example.
 
@@ -121,53 +120,19 @@ Define ctx2 : olist -> olist -> prop by
 \end{lstlisting}
 
 %Top_command
-Contexts, as defined in our plugin, can be described as zero or more applications of a finite sum of clauses, each of which adds a formula to a context of the same schema. We restrict the quantification of variables in the formulas to a series of existential quantifiers ($\exists$) followed by $\nabla$s. N-ary context relations, where formulas (potentially depending on the same variables) are introduced simultaneously in  $n$ different contexts, can also be represented using our extension. N-ary context relations are represented using n lists of formulas, each clause corresponding to a constructor stating that, given such context relations, adding the formulas in the clauses in front of their respective list relate the extended lists. An additional constructor corresponding relating empty contexts is added to every context relation. The grammar of the schema definitions follows.
-
-
-\begin{lstlisting}
-OPTEXISTS :=
-  | exists <ID LIST>, 
-  |
-
-OPTNABLAS :=
-  | nabla <ID LIST>,
-  |
-
-CBODY :=
-  | <TERM>, <CBODY>
-  | <TERM>
-
-CLAUSE :=
-  | <OPTEXISTS> <OPTNABLAS> ( <CBODY> )
-  | <OPTEXISTS> <OPTNABLAS> <TERM>
-
-TOP_COMMAND :=
-  | Schema <SCH-NAME> := <CLAUSE>
-\end{lstlisting} 
-
-
-The definition of \lstinline|ctx2| as a context relation schema is given below.
+Contexts, as defined in our plugin, can be described as zero or more formulas, each of a form given one of the clause from a finite set of clauses. N-ary context relations, where formulas (potentially depending on the same variables) are introduced simultaneously in  $n$ different contexts, can also be represented using our extension. The definition of \lstinline|ctx2| as a context relation schema is given below.
 
 \begin{lstlisting}
 Ctx !
 Schema ctx2 := nabla n p, (bred n n, path n p);
                exists M, nabla n, 
                  ((pi u\ bred M u => bred n u), 
-                 (pi q\ path M q => path n q)). !
+                 (pi q\ path M q => path n q)). !.
 \end{lstlisting}
 
 
 %Command
 
-The grammar for the tactics supported by our plugin follows.
-
-\begin{lstlisting}
-COMMAND :=
-  | inversion <HYP-NAME> <HYP-NAME>
-  | sync      <HYP-NAME> <HYP-NAME>
-  | unique    <HYP-NAME> <HYP-NAME> <HYP-NAME>
-  | projas ( <TERM> )  <HYP-NAME>
-\end{lstlisting}
 
 The tactics introduced by our plugin are:
 \begin{itemize}
@@ -187,7 +152,7 @@ forall G D F,
     F = (pi u\ bred M u => bred N u) $\wedge$  
     fresh_tm_in_tm N M)).
 intros Hctx  Hmem. 
-Ctx ! inversion Hctx Hmem.! 
+Ctx ! inversion Hctx Hmem. !.
 search.
 \end{lstlisting}
 
@@ -200,7 +165,7 @@ Theorem ctx2_synchronize :
   (member (pi q\ path M q => path N q) D $\wedge$ 
    fresh_tm_in_tm N M).
 intros Hctx Hmem. 
-Ctx ! sync Hctx Hmem. ! 
+Ctx ! sync Hctx Hmem. !.
 search.
 \end{lstlisting}
 
@@ -214,34 +179,155 @@ Theorem member_D_unique :
    member (pi q\ path Y q => path N q) D ->
    X = Y.
 intros Hctx Hmem1 Hmem2. 
-Ctx ! unique Hctx Hmem1 Hmem2. ! 
+Ctx ! unique Hctx Hmem1 Hmem2. !. 
 search.
 \end{lstlisting}
 
-\item Projection, which helps reusing contexts in different context relations by verifying and applying transformation (projections and injections) theorems between context relations. The $i$th context relations \lstinline|S| can be used as the $j$th projection of a context relations \lstinline|S'| if, for each clauses \lstinline|C| of \lstinline|S|, there exists a clause \lstinline|C'| of \lstinline|S'| s.t. the $i$th formula of \lstinline|C| matches the $j$th formula of \lstinline|C'|, which is to say that the $j$th projection of the schema \lstinline|S'| is more general than the $i$th projection schema \lstinline|S| .
+\item Projection, which helps reusing contexts in different context relations by verifying and applying transformation (projections and injections) theorems between context relations. Intuitively, the $i$th projection of context relation \lstinline|S| can be used as the $j$th projection of a context relations \lstinline|S'| only if the $j$th projection of the schema \lstinline|S'| is more general than the $i$th projection schema \lstinline|S|.
+
 \begin{lstlisting}
 Ctx !
 Schema bctx := exists M, nabla n, 
                   (pi u\ bred M u => bred n u);
-               exists n n', bred n n'. !
+               exists n n', bred n n'. !.
 
 
 Theorem ctx2ToBctx: forall E D, ctx2 E D -> bctx E.
 intros Hctx. 
-Ctx ! projas (bctx E) Hctx. ! 
+Ctx ! projas (bctx E) Hctx. !.
 search.
 
 Ctx ! Schema pctx := nabla n p, path n p. !.
 
 Theorem pctxToCtx2: forall D, pctx D -> (exists E, ctx2 E D).
 intros Hctx. 
-Ctx ! projas (ctx2 E D) Hctx. ! 
+Ctx ! projas (ctx2 E D) Hctx. !. 
 search.
 
 \end{lstlisting}
 
 
 \end{itemize}
+
+\section{The Schema Plugin Revisited}
+\subsection{Plugin}
+The extension we describe adds both top level commands and tactics to Abella. Instead of modifying the parser and main function to support the new functionality, we devised a plugin framework where an arbitrary expression can be dispatched to a particular plugin from an Abella source file. The signature of plugin modules is provided below.
+
+\begin{lstlisting}
+
+module type PLUGIN = sig 
+  val process_tactic : 
+       (string -> Prover.sequent) 
+       -> string 
+       -> Prover.sequent 
+       -> unit
+  val process_top : 
+       (string -> unit) 
+       -> string 
+       -> unit
+end
+
+\end{lstlisting}
+
+Plugins are implemented as modules implementing a processing function for strings received from the top level of the source file, and another processing function for strings received as reasoning command. Each processing function receives a function which allows to recursively process strings as if their appeared in their respective position in the source file. The processing function at the reasoning command level also receives a copy of the current goal and hypothesis, which are updated by their recursing function.
+
+\begin{lstlisting}
+TOP_COMMAND :=
+ | ...
+ | <PLUGIN-NAME> ! <STRING> !.
+
+COMMAND :=
+ | ...
+ | <PLUGIN-NAME> ! <STRING> !.
+\end{lstlisting}
+
+
+
+\subsection{Top level command}
+The grammar of the schema definitions follows.
+
+\begin{lstlisting}
+OPTEXISTS :=
+  | exists <ID LIST>, 
+  |
+
+OPTNABLAS :=
+  | nabla <ID LIST>,
+  |
+
+CBODY :=
+  | <TERM>, <CBODY>
+  | <TERM>
+
+CLAUSE :=
+  | <OPTEXISTS> <OPTNABLAS> ( <CBODY> )
+  | <OPTEXISTS> <OPTNABLAS> <TERM>
+
+CLAUSES :=
+  | <CLAUSE>
+  | <CLAUSE>; <CLAUSES>
+
+TOP_COMMAND :=
+  | Schema <SCH-NAME> := <CLAUSES>.
+\end{lstlisting} 
+
+\subsubsection{Schema}
+TODO explain grammar
+
+\begin{comment}
+We restrict the quantification of variables in the formulas to a series of existential quantifiers ($\exists$) followed by $\nabla$s.
+
+N-ary context relations are represented using n lists of formulas, each clause corresponding to a constructor stating that, given such context relations, adding the formulas in the clauses in front of their respective list relate the extended lists. An additional constructor corresponding relating empty contexts is added to every context relation.
+\end{comment}
+
+\subsubsection{Generated Lemmas}
+TODO explain fresh, name and prune
+
+\subsection{Tactics}
+The grammar for the tactics supported by our plugin follows.
+\begin{lstlisting}
+COMMAND :=
+  | inversion <HYP-NAME> <HYP-NAME>.
+  | sync      <HYP-NAME> <HYP-NAME>.
+  | unique    <HYP-NAME> <HYP-NAME> <HYP-NAME>.
+  | projas ( <TERM> )  <HYP-NAME>.
+\end{lstlisting}
+
+\subsubsection{Inversion}
+\label{subsec:inv}
+
+The \lstinline|inversion| tactic expects two hypothesis, the first of form \lstinline|ctxM G$1$ ... G$m$| and the second of form \lstinline|member E G$i$|, where \lstinline|E,G$1$,...,G$m$| are arbitrary logic variables,\lstinline|ctxM| is a defined schema of arity $m$ and \lstinline|1 $\leq$ $i$ $\leq$ $m$|.
+
+The statement generated by the \lstinline|inversion| tactic will then be a disjunction, each of its component corresponding to a clause \lstinline|C$j$| in the schema \lstinline|ctxM| which could have introduced \lstinline|E| in \lstinline|G$i$|. Each component is a conjunction of the information given by each projection of \lstinline|C$j$|. Where \lstinline|C$jk$| is the formula at the $k$th projection of the clause \lstinline|C$j$|, either \lstinline|E = C$jk$| if $k=i$, otherwise \lstinline|member C$jk$ G$k$|. Moreover, for every pair of nominal \lstinline|n| of type \lstinline|nt| and logical variables \lstinline|E'| of type \lstinline|et| in the clause, we add \lstinline|fresh_nt_in_et n E'| to the component, asserting that \lstinline|n| is $\nabla$-bound and doesn't appear in \lstinline|E'|. In the case where no logical variable are $\exists$-bound in the clause, we instead add \lstinline|name_nt n|, asserting that \lstinline|n| is nominal.
+
+\subsubsection{Synchronize}
+Synchronize can be seen as generalization of inversion, removing the requirement that \lstinline|E| need be a logic variable. 
+
+The \lstinline|sync| tactic expects two hypothesis, the first of form \lstinline|ctxM G$1$ ... G$m$| and the second of form \lstinline|member F G$i$|, where \lstinline|F| is a formula, \lstinline|G$1$,...,G$m$| are arbitrary logic variables,\lstinline|ctxM| is a defined schema of arity $m$ and \lstinline|1 $\leq$ $i$ $\leq$ $m$|.
+
+The statement generated by the \lstinline|sync| tactic is a disjunction with a component for each clause \lstinline|C$j$| such that $\exists \sigma.$ \lstinline| [$\sigma$] C$jk$ $=$ F|, which is to say that \lstinline|C$jk$| pattern-matches \lstinline|F|. Such a component will the be a conjunction of, for $k \neq i$, \lstinline|member C$jk$ G$k$|, in addition to the \lstinline|fresh_in| or \lstinline|name| assumptions described in ~\ref{subsec:inv}.
+
+\subsubsection{Unique}
+The \lstinline|unique| tactic expects three hypothesis, the first of form \lstinline|ctxM G$1$ ... G$m$|, the second of form \lstinline|member F$1$ G$i$| and the third of form \lstinline|member F$2$ G$i$|, where \lstinline|F$1$,F$2$| are unifiable formulas, \lstinline|G$1$,...,G$m$| are arbitrary logic variables,\lstinline|ctxM| is a defined schema of arity $m$ and \lstinline|1 $\leq$ $i$ $\leq$ $m$|.
+
+\lstinline|unique| theorems are based on that, due to our binding order, a particular nominal variables can only appear in a single clause of the context relation. Therefore, we can validly state the theorems that, if \lstinline|F$1$| and \lstinline|F$2$| shares a nominal variable and that they are both from the same projection of \lstinline|ctxM|, they must be the same. To create the statement of the theorem, we unify \lstinline|F$1$| and \lstinline|F$2$| as \lstinline|F|, and create a set \lstinline|S| of all clauses \lstinline|C$l$| of \lstinline|ctxM| for which \lstinline|C$li$| would match \lstinline|F|. Then, we see if there exists a logic variable \lstinline|E| appearing at the same position in \lstinline|F$1$| and \lstinline|F$2$|, such that, in each \lstinline|C$li$ $\in$ S|, a nominal variable appears at this position. If this is the case, the statement will consists of, given the original \lstinline|ctxM G$1$ ... G$m$| hypothesis and two assumption \lstinline|member F'$1$ G$i$| and \lstinline|member F'$2$ G$1$|, where \lstinline|F'$1$, F'$2$|are formulas of the form corresponding to unifying all \lstinline|C$li$ $\in$ S| together, solely sharing the logical variable \lstinline|E| and whose other variables are, respectively, \lstinline|A$1$, ..., A$p$| and \lstinline|B$1$, ..., B$p$|, then \lstinline|A$j$ = B$j$| for $1 \leq j \leq p$
+
+
+
+\subsubsection{Projection}
+The \lstinline|projection| tactic expects a formula of form \lstinline|ctxP D$1$ ... D$p$| and an hypothesis of form \lstinline|ctxM G$1$ ... G$m$|, where \lstinline|ctxM| and \lstinline|ctxP| are defined schemas respectively of arity $m$ and $p$, and \lstinline|D$1$,...,D$p$|, \lstinline|G$1$,...,G$m$| are sets of logic variables, possibly overlapping.
+
+Most of the work done in the \lstinline|projection| tactic is to verify that \lstinline|ctxM G$1$ ... G$m$ $\implies$ ctxP D$1$ ... D$p$|, which is to say that there exists a transformation from a context of the original schema \lstinline|ctxM| to the destination schema \lstinline|ctxP|.
+
+To do so, for every \lstinline|D$i$ $\in$ D$1$, ..., D$p$|, we form the set 
+\lstinline|S$_{i}$: { G$k$ $\mid$ D$i$ = G$k$ $\wedge$ G$k$ $\in$ G$1$, ..., G$m$}|. 
+Then, for each such \lstinline|S$_i$| and for each clause \lstinline|C$j$| in the original schema \lstinline|ctxM|, we unify, for each \lstinline|G$k$ $\in$ S$_i$|, \lstinline|C$jk$| together as \lstinline|CR$ij$| , and verify that there exists a clause \lstinline|C'$l$| in the destination schema \lstinline|ctxP| such that \lstinline|CR$ij$| matches \lstinline|C'$li$|.
+
+
+\begin{comment}
+The $i$th context relations \lstinline|S| can be used as the $j$th projection of a context relations \lstinline|S'| if, for each clauses \lstinline|C| of \lstinline|S|, there exists a clause \lstinline|C'| of \lstinline|S'| s.t. the $i$th formula of \lstinline|C| matches the $j$th formula of \lstinline|C'|, which is to say that the $j$th projection of the schema \lstinline|S'| is more general than the $i$th projection schema \lstinline|S| .
+\end{comment}
+
 
 \section{Discussion and Conclusion}
 Our tactics eliminate the need for most of the boilerplate lemmas present in the developments from the Abella example suite. For example, using our plugin to rewrite the $bredure$ example eliminates half of the lines of code in the reasoning ($.thm$) file. As additional context relations and mappings between context relations are present in bigger developments, we believe the provided tactics can significantly reduce the size of Abella developments using reasoning with contexts.
@@ -251,8 +337,10 @@ All the theorems proved by the tacticals could be proven at the moment of schema
 %Related work
 An important design decision of our development is that the theorem generated are proven using the primitive tactics of Abella, and verified as regular theorems. Consequently, no logical inconsistency could have been introduced by our plugin. This contrasts with theorem provers providing primitive notions of context, such as Twelf \cite{twelfsys} and Beluga \cite{belugasys}, where the properties proven with our tactics are part of the trusted code base.
 
-%Plugin extension
-The extension we describe adds both top level commands and tactics to Abella. Instead of modifying the parser and main function to support the new functionality, we devised a plugin framework where an arbitrary expression can be dispatched to a particular plugin from an Abella source file. Plugins are implemented as modules implementing a processing function for strings received from the top level of the source file, and another processing function for strings received as reasoning command. Each processing function receives a function which allows to recursively process strings as if their appeared in their respective position in the source file. The processing function at the reasoning command level also receives a copy of the current goal and hypothesis, which are updated by their recursing function. This can be related to tactical languages such as Ltac \cite{ltacpap}, which can be used to develop Coq procedures applying tactics in function of current goal. In comparison, we allow arbitrary, potentially unsafe Ocaml code in the plugins, with the restriction that the only entry point back in the prover is the passed function. In the future, one would like to provide functions for plugins to safely interact with the prover, which could culminate in a language to define extensions and tacticals from within Abella source files. 
+%Plugin
+ That \lstinline|process_tactic| can observe the current sequent can be related to tactical languages such as Ltac \cite{ltacpap}, which can be used to develop Coq procedures applying tactics in function of current goal. In comparison, we allow arbitrary, potentially unsafe Ocaml code in the plugins, with the restriction that the only entry point back in the prover is the passed function. In the future, one would like to provide functions for plugins to safely interact with the prover, which could culminate in a language to define extensions and tacticals from within Abella source files. 
+
+
 
 
 \bibliographystyle{abbrvnat}
