@@ -1,3 +1,18 @@
+(31/07/2013) 
+
+We now support adding 0 formulas in some projections of the clause. The clauses are now described as term option.
+Changes:
+* in the schema rule, while definining the schema, projection extended with "None" are written as 
+   ... Gi := ... Gi 
+in the clause, instead of
+    ... tm::Gi ... Gi
+* in unique and sync tactic, projections with none are ignored, as they couldn't have introduced the given members
+* in inversion (on ith projection), while generating the statement, we ignore the clause Cj if Cji = None. We add nothing to the conclusion for projection k if Cjk = None
+* TODO?: projections might be done wrong now, e.g. ctx2 G G when the 2nd projection of ctx2 is None for some clause.
+
+Will update tactdoc and the bilan accordingly, once I'm convinced that projection is fixed.
+
+(21/07/2013)
 This change log unmaintained as of 21-07-2013, see documentation in tactdoc, plugdoc and report/bilan
 
 (19/07/2013) bis

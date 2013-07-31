@@ -236,7 +236,7 @@ TOP_COMMAND :=
  | ...
  | <PLUGIN-NAME> ! <STRING> !.
 
-COMMAND :=
+TACTICS :=
  | ...
  | <PLUGIN-NAME> ! <STRING> !.
 \end{lstlisting}
@@ -315,7 +315,7 @@ Theorem member_prune_t1 : forall G E, nabla (n:t1),
 \subsection{Tactics}
 The grammar for the tactics supported by our plugin follows.
 \begin{lstlisting}
-COMMAND :=
+TACTICS :=
   | inversion <HYP-NAME> <HYP-NAME>.
   | sync      <HYP-NAME> <HYP-NAME>.
   | unique    <HYP-NAME> <HYP-NAME> <HYP-NAME>.

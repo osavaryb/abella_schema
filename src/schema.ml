@@ -38,7 +38,7 @@ let slexbuf = ref (Lexing.from_string "")
           * list of nominal vars
           * list of terms of type o *)
 
-type schemas = (id * (int * (((id*ty) list)*((id*ty) list)*(term list)) list)) list
+type schemas = (id * (int * (((id*ty) list)*((id*ty) list)*((term option) list)) list)) list
 let schemas : schemas ref = ref []
 
 
@@ -55,7 +55,20 @@ let get_schema name =
 
 
 (* General Toolbox *)
+
+let rec remove_nones l =
+ match l with
+ |  None::l' -> (remove_nones l')
+ | (Some o)::l' -> o::(remove_nones l')
+ | [] -> []
+
     
+(* return the first non-empty element in a list of option *)
+let rec find_first l =
+ match l with
+ |  None::l' -> find_first l'
+ | (Some o)::l' -> o
+ | [] -> raise Not_found
 
 (* split l:('a ,'b,'c) list into ('a list, 'b list, 'c list) *)
 let split3 l = 
@@ -272,8 +285,8 @@ let rec patternMatch tm ptn  =
 
 (* returns a list of (bool * (id * id) list)  with, for each pattern in bls, if t could match the pattern, and if it is the case, a substitution s.t. the term = @sub pat *)
 let rec instOfPats t bls = 
-List.map (fun tm ->  patternMatch t tm) bls
-
+List.map (patternMatch t) bls
+    
 
 let rec seqIdTerm id t nl = 
    begin match observe t with
@@ -486,7 +499,7 @@ let member_of_ith t1 t2 =
 
 let rec unifyClConst idtm =
   begin match idtm with
-  | (id, tm)::idtm' -> 
+  | (id, Some tm)::idtm' -> 
       let res = unifyClConst idtm' in
       if List.mem_assoc id res then
 	let tm' = List.assoc id res in
@@ -494,6 +507,8 @@ let rec unifyClConst idtm =
 	res
       else
 	(id, tm)::res
+  | (id, None)::idtm' ->
+      unifyClConst idtm'
   | [] -> [] 
   end
 
@@ -515,7 +530,7 @@ let rec proClConst ids cls =
 
 let rec clMatchesConst constl idtms =
 begin match idtms with
-| (id,tm)::idtms' ->
+| (id,Some tm)::idtms' ->
     if (List.mem_assoc id constl) then
       let tm' = List.assoc id constl in
       let (b,_) = patternMatch tm' tm  in
@@ -525,6 +540,8 @@ begin match idtms with
 	failwith "cl doesn't match the given constL"
     else
       clMatchesConst constl idtms'
+| (id,None)::idtms' -> 
+    clMatchesConst constl idtms'
 | [] -> ()
 end
 
@@ -553,7 +570,11 @@ let make_schema_def schName arr bids =
 	    let schTy = (str_repeat arr " olist ->")^" prop" in
 	    let blids = List.map (fun (a,b,l) -> l) bids in 
 	    let clstrl = List.map (fun e ->
-		 List.fold_left (fun (i,defl,defr) -> fun  (tm) -> (i+1,defl^" (("^(term_to_string tm)^") :: G"^(string_of_int i)^")", defr^" G"^(string_of_int i))) (1, schName, schName)  e) blids in
+		 List.fold_left (fun (i,defl,defr) -> fun otm -> 
+		   begin match otm with 
+		   | None -> (i+1, defl^" G"^(string_of_int i), defr^" G"^(string_of_int i))
+		   | Some tm -> (i+1,defl^" (("^(term_to_string tm)^") :: G"^(string_of_int i)^")", defr^" G"^(string_of_int i)) 
+		   end ) (1, schName, schName)  e) blids in
 	    begin match List.length blids with
 	    |  0 -> "Define "^schName^":"^schTy^" by \n"^schName^(str_repeat arr " nil")^"."
 	    |  _ -> "Define "^schName^":"^schTy^" by \n"^schName^(str_repeat arr " nil")^";\n"^(String.concat ";\n" (List.map (fun ((_,b,_),(_,d,e)) -> 
@@ -570,17 +591,21 @@ let make_sync_clause i ((a,b,l),(it,sub)) =
   begin match it with
   | true ->
       let ( j ,cl,idtys1,idtys2, eit,nit ) = 
-	List.fold_left (fun (j,cstr,idty1,idty2, eit , nit ) -> fun cbl -> 
-	  let c = get_vars Logic cbl in
-	  let d = get_vars Nominal cbl in
-	  if (j = i) then
-	    (j+1,cstr, idty1, idty2, rename_ids_in_idtys substr c, rename_ids_in_idtys substr d)
-	  else 
-	    let s = sprintf "member (%s) G%d" (term_to_string (rename_ids_in_term substr cbl)) j in
-	    let c' = List.filter (fun (id,ty) -> not (List.mem_assoc id sub)) c in
-
-	    let d' = List.filter (fun (id,ty) -> not (List.mem_assoc id sub)) d in 
-	    (j+1,s::cstr, (List.append c' idty1),(List.append d' idty2), eit, nit)) (1,[],[],[], [], []) l in
+	List.fold_left (fun (j,cstr,idty1,idty2, eit , nit ) -> fun otm ->
+	  begin match otm with
+	  | None -> 
+	      (j+1,cstr, idty1,idty2, eit, nit)
+	  | Some cbl -> 
+	      let c = get_vars Logic cbl in
+	      let d = get_vars Nominal cbl in
+	      if (j = i) then
+		(j+1,cstr, idty1, idty2, rename_ids_in_idtys substr c, rename_ids_in_idtys substr d)
+	      else 
+		let s = sprintf "member (%s) G%d" (term_to_string (rename_ids_in_term substr cbl)) j in
+		let c' = List.filter (fun (id,ty) -> not (List.mem_assoc id sub)) c in
+		
+		let d' = List.filter (fun (id,ty) -> not (List.mem_assoc id sub)) d in 
+		(j+1,s::cstr, (List.append c' idty1),(List.append d' idty2), eit, nit) end) (1,[],[],[], [], []) l in
       let idtysa = rem_rep_pairs idtys1 in
       let idtysb = rem_rep_pairs idtys2 in
       let (ida',tya) = List.split idtysa in
@@ -632,21 +657,31 @@ let clstrl = List.map (
 (* for ith (c,d,e), E = l(c,d,e) *)
 let make_inv_stmt i id arr ids  =
     let clstrl = List.map (fun (idtya,idtyb,l) ->
+                       let otmi = List.nth l (i-1) in
+		       begin match otmi with
+		       | None -> "" (* i couldn't have been introduced by this clause *)
+		       | Some _ -> 
                        let (j,cl) = 
-			 List.fold_left (fun (j,cstr) -> fun c -> 
-	   let s = begin if j = i then
-			      sprintf "E = (%s)" (term_to_string c) 
-			   else
-			     sprintf "member (%s) G%d" (term_to_string c) j
-			   end in
-			   (j+1,s::cstr)) (1,[]) l in
+			 List.fold_left (fun (j,cstr) -> fun otm -> 
+			   begin match otm with 
+			   | Some c -> 
+			       let s = begin if j = i then
+				 sprintf "E = (%s)" (term_to_string c) 
+			       else
+				 sprintf "member (%s) G%d" (term_to_string c) j
+			       end in
+			       (j+1,s::cstr) 
+			   | None -> 
+			       (j+1,cstr)
+			   end) (1,[]) l in
 		       let (a,_) = List.split idtya in
 		       let (b,_) = List.split idtyb in
 		       let freshl = if a = [] then all_name idtyb else all_fresh idtya idtyb in
 		       let ab = List.append a b in
 		       if ab = [] then "("^(String.concat " /\\ " (List.append cl freshl))^")" else
-		       sprintf "(exists %s, %s)" (String.concat " " (List.append a b)) (String.concat " /\\ " (List.append cl freshl))) ids in
-    let ctxgl =  string_count arr "G" in
+   sprintf "(exists %s, %s)" (String.concat " " (List.append a b)) (String.concat " /\\ " (List.append cl freshl)) end) ids in
+   let clstrl = List.filter (fun s -> not (s = "")) clstrl in
+   let ctxgl =  string_count arr "G" in
     let ctxg = String.concat " " ctxgl in
     sprintf "forall E %s, %s -> member E G%d -> %s. \n" ctxg (id^" "^ctxg) i (String.concat " \\/ \n" clstrl)
 
@@ -786,7 +821,8 @@ let process_tactic rPPO st _ =
    let (schName,gi,st) = member_of_ith t t1 in
    let (arr, bids) = get_schema schName in
 (* syn.2 *)
-   let mts = List.map (fun (a,b,tml) -> List.nth tml (gi-1)) bids in
+   let mts' = List.map (fun (a,b,tml) -> List.nth tml (gi-1)) bids in
+   let mts = remove_nones mts' in
    let ads = instOfPats st mts in
 (* syn.3 *)
    let adsHashl = List.map (fun (b,_) -> if b then "1" else "0") ads in
@@ -801,10 +837,11 @@ let process_tactic rPPO st _ =
    let vvts = List.filter (fun (cmts, (b,_)) -> b) (List.combine mts ads) in
    if vvts = [] then failwith (sprintf "Schema: in sync, no clauses of %s can introduce a formula of the form %s. \n" schName (term_to_string st));
    let (tlup,pads) = List.split vvts in
-   List.iter (Unify.left_unify (List.hd tlup)) (List.tl tlup);
-   let ads = instOfPats (List.hd tlup) mts in
+   let hdtlup = List.hd tlup in
+   List.iter (Unify.left_unify hdtlup) (List.tl tlup);
+   let ads = instOfPats hdtlup mts in
 (* syn.5 *)
-   let syncThmStr = make_sync_stmt gi schName arr bids ads (List.hd tlup) in
+   let syncThmStr = make_sync_stmt gi schName arr bids ads hdtlup in
    let syncPrfStr = make_sync_prf ads in 
    let appStr = "\n apply "^hypName^" to "^(String.concat " " args)^" ." in
    let aStr = hypName^" : assert "^syncThmStr^syncPrfStr^appStr in
@@ -821,7 +858,8 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
 	 let (schName', gi',te2) = (member_of_ith t t2) in
 	 (if  (gi <> gi' || schName <> schName') then failwith "Schema: membership hypothesis should come from the same projection of the context in 'unique' tactical");
 		  let (arr,bids) = get_schema schName in
-		  let mts = List.map (fun (a,b,tml) -> (List.nth tml (gi-1))) bids  in
+		  let mts' = List.map (fun (a,b,tml) -> (List.nth tml (gi-1))) bids  in
+		  let mts  = remove_nones mts' in
 (* uni.2 *)       let varl = pairwiseEqual te1 te2 in
 
 (* uni.3 *)       Unify.left_unify te1 te2; 
@@ -841,10 +879,11 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
 
 
 		  let tlup = List.map (fun (tm,oldid) -> 
-		    let gvSwap = ((groundVar,oldid)::[(oldid,groundVar)]) in
-		    (rename_ids_in_term gvSwap tm)) (List.combine pmts rel) in
-		  List.iter (Unify.left_unify (List.hd tlup)) (List.tl tlup);
-(* uni.8 *)       let (nl,tu1,tu2) = uniteTerms (List.hd tlup) groundVar in
+		     let gvSwap = ((groundVar,oldid)::[(oldid,groundVar)]) in
+		     (rename_ids_in_term gvSwap tm)) (List.combine pmts rel) in
+		  let hdtlup = List.hd tlup in
+		  List.iter (Unify.left_unify hdtlup) (List.tl tlup);
+(* uni.8 *)       let (nl,tu1,tu2) = uniteTerms hdtlup groundVar in
 		  let (bads,_) = List.split ads in
 		  let uniThmStr = make_uni_stmt schName tu1 tu2 nl arr gi groundVar in
                   let uniPrfStr = make_uni_prf schName mts bads in
@@ -931,18 +970,24 @@ let process_top rPO st =
 		  let eb = List.unique eb in
 		  List.iter (fun id -> if not (id.[0] = Char.uppercase (id.[0])) then failwith ("Exists bound variables must start with an uppercase character, in declaration of "^id)) eb;
 		  let nb = List.unique nb in
-		  let (ebidtys,nbidtys) = List.fold_left (fun (ebit,nbit) ut ->
-		       let vlist = type_vars_in (uterm_to_term [] ut) (Ty( [], "o")) sign in
-		       let (ebit',nbit') = List.partition (fun (id,ty) -> List.mem id eb) vlist in
-		       List.iter (fun (id,ty) -> if not (List.mem id nb) then failwith ("Schema: Unknown constant "^id^"\n")) nbit';
-	(append_uni_assocs ebit ebit', append_uni_assocs nbit nbit')) ([],[]) cl in
+		  let (ebidtys,nbidtys) = List.fold_left (fun (ebit,nbit) out ->
+		      begin match out with 
+		      |	None ->  (ebit,nbit)
+		      |	Some ut ->
+			  let vlist = type_vars_in (uterm_to_term [] ut) (Ty( [], "o")) sign in
+			  let (ebit',nbit') = List.partition (fun (id,ty) -> List.mem id eb) vlist in
+			  List.iter (fun (id,ty) -> if not (List.mem id nb) then failwith ("Schema: Unknown constant "^id^"\n")) nbit';
+			  (append_uni_assocs ebit ebit', append_uni_assocs nbit nbit')
+		      end) ([],[]) cl in
 		  let (_,tys1) = List.split ebidtys in
 		  let (_,tys2) = List.split nbidtys in
 		  let genStr = makeBlockGeneric tys1 tys2 in
 		  let ebctx = tyctx_to_logical_ctx ebidtys in
 		  let nbctx = tyctx_to_nominal_ctx nbidtys in
 		  let tyctx = List.append ebctx nbctx in
-		  let clt = List.map (fun ut -> type_uterm ~sr:!sr ~sign:!sign ~ctx:tyctx ut) cl in
+		  let clt = List.map (fun out -> begin match out with
+		  | None -> None
+		  | Some ut -> Some (type_uterm ~sr:!sr ~sign:!sign ~ctx:tyctx ut) end) cl in
 		  ((ebidtys,nbidtys,clt),genStr)) cll in
 		let (cll',genl) = List.split clgenl in
 		let genStr = String.concat " \n" genl in
