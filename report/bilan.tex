@@ -359,7 +359,15 @@ The $i$th context relations \lstinline|S| can be used as the $j$th projection of
 
 
 \section{Discussion and Conclusion}
-Our tactics eliminate the need for most of the boilerplate lemmas present in the developments from the Abella example suite. For example, using our plugin to rewrite the $bredure$ example eliminates half of the lines of code in the reasoning ($.thm$) file. As additional context relations and mappings between context relations are present in bigger developments, we believe the provided tactics can significantly reduce the size of Abella developments using reasoning with contexts.
+Our tactics eliminate the need for most of the boilerplate lemmas present in the developments from the Abella example suite. For example, using our plugin to rewrite the $bredure$ example eliminates $40\%$ of the lines of code in the reasoning ($.thm$) file. As additional context relations and mappings between context relations are present in bigger developments, we believe the provided tactics can significantly reduce the size of Abella developments using reasoning with contexts.
+\begin{center}
+\begin{tabular} { | c || p{1.5cm} | p{1.5cm} | p{1.5cm} |}
+\hline
+File & Lemmas removed & LOC removed & $\%$ of LOC removed \\ \hline
+breduce & $11$ & $124$ & $40\%$ \\ \hline
+
+\end{tabular}
+\end{center}
 
 All the theorems proved by the tacticals could be proven at the moment of schema definition (or at the second schema definition in the case of projection). To reduce the number of theorems polluting the environment, we state and prove them only as needed, selecting the required theorem by observing the assumptions applied to the tactics. Proven theorems are kept until the end of the proof in which the tactical was used to avoid having to reprove them, for example in the case of repetitive application of a tactic to similar hypothesis. Each theorem can be named by stating it and using a tactical to prove it, as shown in each of the included example use of tacticals.
 
