@@ -7,22 +7,40 @@ Presentation of the Ctx plugin.
 
 Syntax:
 
-top_command :=
-  | Schema [name] := clause
 
-command :=
-  | "inversion" H1 H2
-  | "sync"      H1 H2
-  | "unique"    H1 H2 H3
-  | "projas" "(" [destination schema name and projections] ")" H
+OPTEXISTS :=
+  | exists <ID LIST>, 
+  |
 
-cbody :=
-  | term, cbody
-  | term
+OPTNABLAS :=
+  | nabla <ID LIST>,
+  |
 
-clause :=
-  | ["exists" ...,]? ["nabla ...,]? ( cbody )
-  | ["exists" ...,]? ["nabla ...,]? term
+OPTTERM :=
+ | <TERM>
+ | 
+
+CBODY :=
+  | <OPTTERM>, <CBODY>
+  | <OPTTERM>
+
+CLAUSE :=
+  | <OPTEXISTS> <OPTNABLAS> ( <CBODY> )
+  | <OPTEXISTS> <OPTNABLAS> <OPTTERM>
+
+CLAUSES :=
+  | <CLAUSE>
+  | <CLAUSE>; <CLAUSES>
+
+TOP_COMMAND :=
+  | Schema <SCH-NAME> := <CLAUSES>.
+
+
+COMMAND :=
+  | inversion <HYP-NAME> <HYP-NAME>.
+  | sync      <HYP-NAME> <HYP-NAME>.
+  | unique    <HYP-NAME> <HYP-NAME> <HYP-NAME>.
+  | projas ( <TERM> )  <HYP-NAME>.
 
 
 

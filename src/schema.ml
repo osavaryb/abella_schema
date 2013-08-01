@@ -56,6 +56,12 @@ let get_schema name =
 
 (* General Toolbox *)
 
+(* return true if all the members of l are None *)
+let rec all_none l =
+  let bl = List.map Option.is_none l in 
+  List.fold_left (fun b cb -> b && cb) true bl
+
+
 let rec remove_nones l =
  match l with
  |  None::l' -> (remove_nones l')
@@ -496,29 +502,36 @@ let member_of_ith t1 t2 =
   end
 
 
+(* if Some tm, unify with previous tm' in the list if there is, otherwise add to list
+   if None, then clause couldn't have introduced formulas to other projections sharing the same projection variable, so if another constraints sharing the same variables have introduced a constraints, remove all constraints for that clause. *) 
+let rec makeClauseConstrain idtm const = 
+begin match idtm with
+| (id, Some tm)::idtm' ->
+    if List.mem_assoc id const then
+      let tm' = List.assoc id const in
+      Unify.right_unify tm tm';
+      makeClauseConstrain idtm' const
+    else
+      makeClauseConstrain idtm' ((id,tm)::const)
+| (id, None)::idtm' ->
+    let const' = makeClauseConstrain idtm' const in
+     if List.mem_assoc id const' then
+       []
+     else
+       const'
+| [] -> const
+end
 
-let rec unifyClConst idtm =
-  begin match idtm with
-  | (id, Some tm)::idtm' -> 
-      let res = unifyClConst idtm' in
-      if List.mem_assoc id res then
-	let tm' = List.assoc id res in
-	 Unify.right_unify tm tm';
-	res
-      else
-	(id, tm)::res
-  | (id, None)::idtm' ->
-      unifyClConst idtm'
-  | [] -> [] 
-  end
 
+(* ids: name of the projections of the schema
+   cls: list of (term option lists), for each clause of the schema. *)
 let rec proClConst ids cls =
   begin match cls with
   | (tts)::cls' -> 
       let res = proClConst ids cls' in
       let idtts = List.combine ids tts in
       begin try 
-	let clConst = unifyClConst idtts in
+	let clConst = makeClauseConstrain idtts [] in
 	clConst::res
       with _ ->  failwith "Schema: in proClConst, failed to unify projection constraints. \n" 
       end 	
@@ -527,10 +540,13 @@ let rec proClConst ids cls =
 
 
 
+(* verify if the given clauses matches the list of constraints, fail if it doesn't, o.w. return unit 
 
+ const: (id*tm) list, list of contraints
+ idtms: (id*tm) list, terms from the clause's projection paired with their projections variable *)
 let rec clMatchesConst constl idtms =
 begin match idtms with
-| (id,Some tm)::idtms' ->
+| (id,tm)::idtms' ->
     if (List.mem_assoc id constl) then
       let tm' = List.assoc id constl in
       let (b,_) = patternMatch tm' tm  in
@@ -540,21 +556,33 @@ begin match idtms with
 	failwith "cl doesn't match the given constL"
     else
       clMatchesConst constl idtms'
-| (id,None)::idtms' -> 
-    clMatchesConst constl idtms'
 | [] -> ()
 end
 
-let rec findMatchingCls constl ids cltms = 
+
+(* constl: (id*tm) list, constraints from the clause being checked
+   idts:id list, name of the projection for the destination schema
+   cltms: (term option list) list, clauses of the destination schema
+*)
+let rec findMatchingCls constlO ids cltms = 
   begin match cltms with
   | tms::cltms' -> 
       let idtms = List.combine ids tms in
+      let constlD = makeClauseConstrain idtms [] in
       begin try 
-	clMatchesConst constl idtms 
-      with _ ->  findMatchingCls constl ids cltms' end
+	if constlD = [] then
+	  failwith "next!"
+	else
+	  clMatchesConst constlO constlD
+      with _ ->  findMatchingCls constlO ids cltms' end
   | [] -> failwith "Schema: No clauses the given format for the projection being built. \n"
   end
 
+
+(* clConst:((id*tm) list) list, constraints created from each of the clauses of the origin schema
+   idts:id list, name of the projection for the destination schema
+   cltms: (term option list) list, clauses of the destination schema
+*)
 let rec checkProMatches clConst ids cltms = 
   begin match clConst with
   | (constl)::clConst' ->
@@ -927,6 +955,7 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
 	       with _ ->
 (* pro.3 *)    let (_,_,btmsO) = split3 bidsO in
 	       let clConsO = proClConst schOs btmsO in
+	       if (List.flatten clConsO) = [] then failwith "Schema: Couldn't create the constraints from the original schema in projection tactic";
                let (_,_,btmsD) = split3 bidsD in
                 checkProMatches clConsO schDs btmsD;   
 (* pro.4 *)    let projThmStr =  make_proj_stmt schNameO schOs schNameD schDs in
@@ -990,9 +1019,11 @@ let process_top rPO st =
 		  | Some ut -> Some (type_uterm ~sr:!sr ~sign:!sign ~ctx:tyctx ut) end) cl in
 		  ((ebidtys,nbidtys,clt),genStr)) cll in
 		let (cll',genl) = List.split clgenl in
+		let cll'' = List.filter (fun (eb,nb,clt) ->  not (all_none clt)) cll' in (* remove empty clauses *)
+		if cll'' = [] then failwith "Schema: Trying to define an empty schema. \n";
 		let genStr = String.concat " \n" genl in
-		add_schema id (arr, cll');
-		let cdef = make_schema_def id arr cll' in
+		add_schema id (arr, cll'');
+		let cdef = make_schema_def id arr cll'' in
 		rPO  (cdef^" \n "^genStr);
       end
     with 
