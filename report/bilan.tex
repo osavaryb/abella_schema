@@ -199,7 +199,8 @@ search.
 
 Ctx ! Schema pctx := nabla n p, path n p. !.
 
-Theorem pctxToCtx2: forall D, pctx D -> (exists E, ctx2 E D).
+Theorem pctxToCtx2: forall D, pctx D -> 
+    (exists E, ctx2 E D).
 intros Hctx. 
 Ctx ! projas (ctx2 E D) Hctx. !. 
 search.
@@ -296,10 +297,10 @@ Context relations defined using schema are added to the definitions of the Abell
 
 After a Schema is defined, in addition to the context relation proposition being defined, a number of propositions and lemmas are automatically generated.
 
-For each unique pair of type \lstinline|(t$1$,t$2$)| where \lstinline|t$1$| is the type of a nominal variable and \lstinline|t$2$| is the type of a logic variable appearing in the same clause, we define a proposition \lstinline|fresh_t$1$_in_t$2$ N X|, stating that \lstinline|N| is a $\nabla$ bound variable of type \lstinline|t$1$| which can't appear in \lstinline|X|.
+For each unique pair of type \lstinline|(t$1$,t$2$)| where \lstinline|t$1$| is the type of a nominal variable and \lstinline|t$2$| is the type of a logic variable appearing in the same clause, we define a proposition \lstinline|fresh_t$1$_in_t$2$ N X|, stating that \lstinline|N| is a $\nabla$-bound variable of type \lstinline|t$1$| which can't appear in \lstinline|X|.
 
 \begin{lstlisting}
-Define fresh_t1_in_t2 : t2 -> t1 -> prop by
+Define fresh_t1_in_t2 : t1 -> t2 -> prop by
   nabla n, fresh_t1_in_t2 n X.
 \end{lstlisting}
 
@@ -352,9 +353,9 @@ The \lstinline|projection| tactic expects a formula of form \lstinline|ctxP D$1$
 
 Most of the work done in the \lstinline|projection| tactic is to verify that \lstinline|ctxM G$1$ ... G$m$| does indeed imply \lstinline|ctxP D$1$ ... D$p$|, which is to say that there exists a transformation from any context of the original schema \lstinline|ctxM| to one of the destination schema \lstinline|ctxP|.
 
-To do so, for each clause \lstinline|C$i$| from \lstinline|ctxM|, we create a list of constraints which arise from introducing formulas respecting the possible repetitions of context variables in \lstinline|G$1$, ..., G$m$|. For example, if the \lstinline|$j$th| and the \lstinline|$k$th| projection of \lstinline|ctxM| share the same context variable \lstinline|G|, and \lstinline|C$ik$ = of x A,  C$ij$ = of x (foo B)|, then the constrains added will be \lstinline|(G,of x (foo C))|. However, if one of \lstinline|C$ij$| or \lstinline|C$ik$| didn't introduce a formula and the other did, or if they added formulas which weren't unifiable, then we consider that this clause couldn't have been used to build the schema, and return an empty constraints list for that clause.
+To do so, for each clause \lstinline|C$i$| from \lstinline|ctxM|, we create a list of constraints which arise from introducing formulas to the context using that clause, respecting the possible repetitions of context variables in \lstinline|G$1$, ..., G$m$|. For example, if the \lstinline|$j$th| and the \lstinline|$k$th| projection of \lstinline|ctxM| share the same context variable \lstinline|G|, and \lstinline|C$ik$ = of x A,  C$ij$ = of x (foo B)|, then the constraints added would be \lstinline|(G,of x (foo C))|. However, if one of \lstinline|C$ij$| or \lstinline|C$ik$| didn't introduce a formula and the other did, or if they added formulas which aren't unifiable, then we consider that this clause couldn't have been used to build the original relation, and return an empty constraints list for that clause.
 
-Then, for each clause \lstinline|C$i$| from \lstinline|ctxM|, we verify that there exists a clause in \lstinline|ctxP| which satisfies the constraints list \lstinline|S$i$| given by \lstinline|C$i$|, which is to say that there is a more general clause of \lstinline|ctxP| which can handles the formulas introduced by the clause of \lstinline|ctxM|. We create a list of constraints \lstinline|S'$j$| from the clause \lstinline|C$j$| of \lstinline|ctxP| as we did it for \lstinline|ctxM|, and we verify that if it satisfies all constraints from the original clause. In short, given the constraints from \lstinline|ctxM| and \lstinline|ctxP|, for the transformation to be proven by our extension, it must be that the following is true:
+Then, for each clause \lstinline|C$i$| from \lstinline|ctxM|, we verify that there exists a clause in \lstinline|ctxP| which satisfies the constraints list \lstinline|S$i$| given by \lstinline|C$i$|, which is to say that there is a more general clause of \lstinline|ctxP| which can handles the formulas introduced by \lstinline|C$i$|. We create a list of constraints \lstinline|S'$j$| from the clause \lstinline|C$j$| of \lstinline|ctxP| as we did it for \lstinline|ctxM|, and we verify that if it satisfies all constraints from the original clause. In short, given the constraints from \lstinline|ctxM| and \lstinline|ctxP|, for the transformation to be proven by our extension, it must be that the following is true:
 \begin{lstlisting}
  $\forall$ S$_i$. $\exists$ S'$_j$. 
    $\forall$ (g,tm) $\in S_i$. $\forall$ (g',tm') $\in$ S'$_j$. 
@@ -391,28 +392,28 @@ breduce & 3 & 11 & 124 \\ \hline
 \end{tabular}
 \end{center}
 
-All the theorems proved by the tacticals could be proven at the moment of schema definition (or at the second schema definition in the case of projection). To reduce the number of theorems polluting the environment, we state and prove them only as needed, selecting the required theorem by observing the assumptions applied to the tactics. Proven theorems are kept until the end of the proof in which the tactical was used to avoid having to reprove them, for example in the case of repetitive application of a tactic to similar hypothesis. Each theorem can be named by stating it and using a tactical to prove it, as shown in each of the included example use of tacticals.
+All the theorems proved by the tacticals could be proven at the moment of schema definition (or when the second schema is defined, in the case of projection). To reduce the number of theorems polluting the environment, we state and prove them only as needed, selecting the required theorem by observing the assumptions applied to the tactics. Proven theorems are kept until the end of the proof in which the tactical was used to avoid having to reprove them, for example in the case of repetitive application of a tactic to similar hypothesis. Each theorem can be named by stating it and using a tactical to prove it, as shown in each of the included example use of tacticals.
 
 %limitation
-Our schema definitions doesn't cover all the uses of contexts possible in Abella. 
-For example, we limit the right hand side on the definition to the smaller context relation, where some developments include, for example, propositions about the terms being added.
-As for the tactics, our aim is to only generate the theorems and their proofs when we are convinced the theorems are true. This also means we may refuse to generate a theorem due to it being outside of the fragment we verify in our implementation. An example of such theorem would be trying to apply projection between \lstinline|ctxO G G| and  \lstinline|ctxD G G| with
+Our schema definitions do not cover all the possible uses of contexts in Abella. 
+For example, we limit the right hand side on the definition to the smaller context relation, where some developments include, for example, propositions about the terms being added. We also only allow at most one formula to be added to each projection of the context, where some developments add multiple formulas at the same time on top of a context, which is required in the case where a term in that context refers to multiple clauses sharing the same nominal variable. As an alternative, one could define their own tuples and use them to combine multiple formulas as one. 
+ 
+As for the tactics, we only generate the theorems and their proofs when we are convinced the theorems are true. This also means we refuse to generate a theorem when it falls outside of the fragment verified in our implementation of the tactics. An example of such theorem would be a projection between \lstinline|ctxO G G| and  \lstinline|ctxD G G| with
 \begin{lstlisting}
 Schema ctxD := (i, i).
 
 Schema ctxO := (i,  );
                ( , i).
 \end{lstlisting}
-
 %Related work
 An important design decision of our development is that the theorem generated are proven using the primitive tactics of Abella, and verified as regular theorems. Consequently, no logical inconsistency could have been introduced by our plugin. This contrasts with theorem provers providing primitive notions of context, such as Twelf \cite{twelfsys} and Beluga \cite{belugasys}, where the properties proven with our tactics are part of the trusted code base.
 
 %Ctx future work
-
+Another valuable operation when reasoning with contexts is schema subsumption. To implement schema subsumption, we would first need to infer a subordination relation from the signature, as done in Twelf \cite{twelfsys}. Intuitively, subordination tells you the types of terms which can appear within another term of a given type. Using the subordination relation, we can determine when a theorem can be used with a context of a different schema, schema subsumption. A satisfying solution might include working \emph{by default} in the minimal schema in which we can reason about terms of a given type and inferring all places where subsumption is needed, which can't be done using plugins as we define them.
 
 
 %Plugin future work
- That \lstinline|process_tactic| can observe the current sequent can be related to tactical languages such as Ltac \cite{ltacpap}, which can be used to develop Coq procedures applying tactics in function of current goal. In comparison, we allow arbitrary, potentially unsafe Ocaml code in the plugins, with the restriction that the only entry point back in the prover is the passed function. In the future, one would like to provide functions for plugins to safely interact with the prover, which could culminate in a language to define extensions and tacticals from within Abella source files. 
+ That \lstinline|process_tactic| can observe the current sequent can be related to tactical languages such as Ltac \cite{ltacpap}, which can be used to develop Coq procedures applying tactics in function of current goal. In comparison, we allow arbitrary, potentially unsafe Ocaml code in the plugins, with the restriction that the only entry point back in the prover is the passed function. In the future, one would like to provide functions for plugins to safely interact with the prover, which could culminate in a language to define extensions and tacticals from within Abella source files. In a redevelopment of Abella, one could think of tactics solely as plugins, using a set of primitive, trusted operations on the current sequent to implement them, which would result in a prover with a smaller trusted code base.
 
 
 
