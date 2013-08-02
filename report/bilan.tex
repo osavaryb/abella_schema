@@ -83,7 +83,7 @@
 \begin{document}
 \maketitle
 \section{Introduction}
-This work aims at simplifying contextual reasoning in Abella.
+This work aims at simplifying reasoning with contexts in Abella.
 
 Abella \cite{abellasys} is an interactive theorem prover developed in a collaboration between INRIA Saclay Ile-de-France and U. of Minnesota. A formal development in Abella consists of:
 \begin{itemize}
@@ -91,7 +91,7 @@ Abella \cite{abellasys} is an interactive theorem prover developed in a collabor
 \item a reasoning file, where theorems about the specifications are stated and proved using a language of tactics.
 \end{itemize}
 
-Abella allows for higher-order reasoning; terms may introduce assumptions to a local context of assumptions. In Abella, such contexts are represented as lists. However, contextual reasoning generally requires a certain number of structural properties of the context which do not hold in general for lists of formulas. For this reason, other systems such as Twelf \cite{twelfsys} and Beluga \cite{belugasys} provide specific facilities to characterize contexts in such a way that the desired proprieties always hold. Instead, Abella users need to define a proposition characterizing what kind of assumption can dynamically extend the context, and prove a number of structural theorems to reason about members of such context. Our main contribution is to automatically prove properties about contexts defined using our facilities.
+Abella allows for higher-order reasoning; terms may introduce assumptions to a local context of assumptions. In Abella, such contexts are represented as lists. However, reasoning with contexts generally requires a certain number of structural properties of the contexts which do not hold in general for lists of formulas. For this reason, other systems such as Twelf \cite{twelfsys} and Beluga \cite{belugasys} provide specific facilities to characterize contexts in such a way that the desired proprieties always hold. Instead, Abella users need to define a proposition characterizing what kind of assumption can dynamically extend the context, and prove a number of structural theorems to reason about members of such context. Our main contribution is to automatically prove properties about contexts defined using our facilities.
 % lacks specific facilities to define them, such as regular worlds in Twelf \cite{twelfsys} and schemas in Beluga \cite{belugasys}. 
 
 \section{The Ctx Plugin by Example}
@@ -396,7 +396,7 @@ All the theorems proved by the tacticals could be proven at the moment of schema
 
 %limitation
 Our schema definitions do not cover all the possible uses of contexts in Abella. 
-For example, we limit the right hand side on the definition to the smaller context relation, where some developments include, for example, propositions about the terms being added. We also only allow at most one formula to be added to each projection of the context, where some developments add multiple formulas at the same time on top of a context, which is required in the case where a term in that context refers to multiple clauses sharing the same nominal variable. As an alternative, one could define their own tuples and use them to combine multiple formulas as one. 
+For example, we limit the right hand side on the definition to the smaller context relation, where some developments include, for example, propositions about the terms being added. We also only allow at most one formula to be added to each projection of the context, where some developments add multiple formulas at the same time on top of a context, which is required in the case where a term in that context refers to multiple clauses sharing a single nominal variable. As an alternative, one could define their own tuples and use them to combine multiple formulas as one. 
  
 As for the tactics, we only generate the theorems and their proofs when we are convinced the theorems are true. This also means we refuse to generate a theorem when it falls outside of the fragment verified in our implementation of the tactics. An example of such theorem would be a projection between \lstinline|ctxO G G| and  \lstinline|ctxD G G| with
 \begin{lstlisting}
