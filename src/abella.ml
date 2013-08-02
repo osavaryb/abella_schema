@@ -47,12 +47,6 @@ exception AbortProof
 
 (* Plugins *)
 
-(*
-module type PLUGIN = sig 
-  val process_tactic : (string -> unit) -> string -> unit
-  val process_top : (string -> unit) -> string -> unit
-end *)
-
 module type PLUGIN = sig 
   val process_tactic : (string -> Prover.sequent) -> string -> Prover.sequent -> unit
   val process_top : (string -> unit) -> string -> unit
